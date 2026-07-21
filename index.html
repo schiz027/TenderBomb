@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TenderBomb</title>
+    <link rel="icon" href="assets/tender-bomb-mark.svg" type="image/svg+xml">
+    <script>
+      (() => {
+        const theme = window.localStorage.getItem("tenderBombTheme");
+        if (["beige", "green", "purple", "pink", "blue", "dark"].includes(theme)) {
+          document.documentElement.dataset.theme = theme;
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand" aria-label="TenderBomb">
+          <img class="brand-logo" src="assets/tenderbomb-logo.png" alt="TenderBomb">
+        </div>
+        <div class="game-launcher" aria-label="Дополнительные режимы">
+          <p class="ban-disclaimer">
+            Если будете использовать сторонние программы/эксплойты/баги, Вы будете <strong>ЗАБАНЕНЫ</strong>!
+          </p>
+          <div class="launcher-buttons">
+            <button class="mini-game-button checkers-beta-button" id="openCheckersBtn" type="button">
+              <span>Шашки</span>
+              <span>beta</span>
+            </button>
+            <button class="mini-game-button tanks-beta-button" id="openTanksBtn" type="button">
+              <span>Танчики</span>
+              <span>beta</span>
+            </button>
+          </div>
+        </div>
+        <div class="round-status" id="roundStatus">Новый аукцион</div>
+      </header>
+
+      <main class="playfield" id="tenderBombView">
+        <aside class="multiplayer-panel" id="multiplayerPanel" aria-label="Лидерборд">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">рекорды отдела</p>
+              <h2>Лидерборд</h2>
+            </div>
+            <span class="mood" id="raceBadge">OFFLINE</span>
+          </div>
+          <label class="player-field">
+            <span>Имя</span>
+            <input id="playerName" type="text" maxlength="32" autocomplete="nickname">
+          </label>
+          <div class="race-actions">
+            <button class="ghost-button" id="saveNameBtn" type="button">Сохранить</button>
+          </div>
+          <p class="race-status" id="raceStatus">Сервер рекордов не подключен.</p>
+          <div class="leaderboards" id="leaderboards"></div>
+        </aside>
+
+        <section class="game-surface" aria-label="Тендерное поле">
+          <div class="toolbar">
+            <div class="mode-switch" role="tablist" aria-label="Сложность">
+              <button class="mode-button" type="button" data-mode="express" data-tip="Короткое поле 8 на 8: 64 раздела, быстрый раунд, чтобы поймать механику и мем.">Экспресс</button>
+              <button class="mode-button" type="button" data-mode="state" data-tip="Средний аукцион 11 на 12 без четырех углов: ровно 128 игровых разделов и почти квадратное поле.">Госзаказ</button>
+              <button class="mode-button" type="button" data-mode="registry" data-tip="Большое поле 16 на 16: 256 разделов про реестры и импортозамещение.">Импортозамещение</button>
+            </div>
+            <button class="primary-button" id="newGameBtn" type="button">Новый аукцион</button>
+          </div>
+
+          <div class="stats-row" aria-live="polite">
+            <div class="stat" tabindex="0" data-tip="Сколько закрывашек ещё предположительно осталось на поле. Флажки 'Не лезем' уменьшают это число.">
+              <span class="stat-value" id="risksLeft">0</span>
+              <span class="stat-label">риски</span>
+            </div>
+            <div class="stat" tabindex="0" data-tip="Сколько клеток ты уже пометил как 'Не лезем'. Это аналог флажков в обычном сапёре.">
+              <span class="stat-value" id="flagsUsed">0</span>
+              <span class="stat-label">не лезем</span>
+            </div>
+            <div class="stat" tabindex="0" data-tip="Сколько безопасных разделов осталось открыть, чтобы выиграть аукцион.">
+              <span class="stat-value" id="safeLeft">0</span>
+              <span class="stat-label">разделы</span>
+            </div>
+            <div class="stat" tabindex="0" data-tip="Время с первого открытого раздела. Некоторые события могут добавить штрафные секунды.">
+              <span class="stat-value" id="timer">00:00</span>
+              <span class="stat-label">время</span>
+            </div>
+          </div>
+
+          <div class="action-row">
+            <button class="tool-button" id="flagModeBtn" type="button" aria-pressed="false" data-tip="Включает режим отметки. Клик по клетке ставит знак 'Не лезем', если там кажется закрывашка.">
+              <img class="button-icon" src="assets/icon-flag.svg" alt="">
+              <span>Не лезем</span>
+            </button>
+            <button class="tool-button" id="fasBtn" type="button" data-tip="Разовая попытка через ФАС: может снять одну закрывашку или хотя бы подсветить подозрительный раздел.">
+              <img class="button-icon" src="assets/icon-fas.svg" alt="">
+              <span>Жалоба ФАС</span>
+              <span class="pill" id="fasCharges">1</span>
+            </button>
+            <button class="tool-button extract-button" id="extractBtn" type="button" disabled data-tip="Точечный бонус. Выписка РФ подсвечивает одну закрывашку и открывает один безопасный раздел, но сама по себе не выигрывает раунд.">
+              <img class="button-icon" src="assets/icon-extract-rf.svg" alt="">
+              <span>Выписка РФ</span>
+              <span class="pill" id="extractCharges">0</span>
+            </button>
+          </div>
+
+          <div class="case-strip" aria-label="Тематические маркеры">
+            <span class="case-token" tabindex="0" data-tip="РУ-позиция: уникальный признак из регистрационного удостоверения. Например, 'кольцевидные расширения в области суставов пальцев' у перчаток.">
+              <img src="assets/icon-glove-ru.svg" alt="">
+              <span>РУ-позиция</span>
+            </span>
+            <span class="case-token" tabindex="0" data-tip="Закрывашка: позиция в ТЗ, которая есть условно только у одного участника в РУ и закрывает вход остальным.">
+              <img src="assets/icon-zakryvashka.svg" alt="">
+              <span>Закрывашка</span>
+            </span>
+            <span class="case-token" tabindex="0" data-tip="Выписка: документ из реестра. В игре это преимущество для проверки поля, но не мгновенная победа.">
+              <img src="assets/icon-extract-rf.svg" alt="">
+              <span>Выписка</span>
+            </span>
+            <span class="case-token" tabindex="0" data-tip="ФАС: попытка спорить с условиями. Может снять риск или подсветить подозрительное место.">
+              <img src="assets/icon-fas.svg" alt="">
+              <span>ФАС</span>
+            </span>
+          </div>
+
+          <div class="progress-track" aria-hidden="true">
+            <span class="progress-fill" id="progressFill"></span>
+          </div>
+
+          <div class="board-shell">
+            <div class="board" id="board" aria-label="Поле аукциона"></div>
+          </div>
+
+        </section>
+
+        <aside class="side-surface" aria-label="Состояние отдела">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">оперативка</p>
+              <h2>Лента отдела</h2>
+            </div>
+            <span class="mood" id="riskMood">тихо</span>
+          </div>
+          <ol class="event-log" id="eventLog" aria-live="polite"></ol>
+          <div class="theme-panel" aria-label="Цветовая гамма интерфейса">
+            <div class="theme-panel-title">
+              <span>Тема интерфейса</span>
+            </div>
+            <div class="theme-switcher" role="group" aria-label="Выбор цветовой гаммы">
+              <button class="theme-button" type="button" data-theme="beige" aria-label="Бежевая тема" title="Бежевая тема"><span class="theme-swatch" aria-hidden="true"></span></button>
+              <button class="theme-button" type="button" data-theme="green" aria-label="Зелёная тема" title="Зелёная тема"><span class="theme-swatch" aria-hidden="true"></span></button>
+              <button class="theme-button" type="button" data-theme="purple" aria-label="Фиолетовая тема" title="Фиолетовая тема"><span class="theme-swatch" aria-hidden="true"></span></button>
+              <button class="theme-button" type="button" data-theme="pink" aria-label="Розовая тема" title="Розовая тема"><span class="theme-swatch" aria-hidden="true"></span></button>
+              <button class="theme-button" type="button" data-theme="blue" aria-label="Синяя тема" title="Синяя тема"><span class="theme-swatch" aria-hidden="true"></span></button>
+              <button class="theme-button" type="button" data-theme="dark" aria-label="Тёмная тема" title="Тёмная тема"><span class="theme-swatch" aria-hidden="true"></span></button>
+            </div>
+          </div>
+        </aside>
+      </main>
+
+      <main class="checkers-screen" id="checkersView" aria-label="Шашки онлайн" hidden>
+        <aside class="checkers-panel checkers-lobby" aria-label="Лобби шашек">
+          <div>
+            <p class="eyebrow">лобби</p>
+            <h3 id="checkersLobbyTitle">Вход в партию</h3>
+          </div>
+          <label class="player-field">
+            <span>Имя</span>
+            <input id="checkersName" type="text" maxlength="32" autocomplete="nickname">
+          </label>
+          <div class="race-actions">
+            <button class="ghost-button" id="saveCheckersNameBtn" type="button">Сохранить ник</button>
+          </div>
+
+          <section class="checkers-mode-section" aria-label="Одиночный режим">
+            <h4>Одиночный режим</h4>
+            <label class="bot-difficulty-field">
+              <span>
+                <span>Сложность бота</span>
+                <strong id="checkersBotDifficultyValue">Сложно</strong>
+              </span>
+              <input id="checkersBotDifficulty" type="range" min="1" max="5" step="1" value="3">
+            </label>
+            <button class="ghost-button singleplayer-button" id="singleplayerCheckersBtn" type="button">Старт одиночный режим</button>
+          </section>
+
+          <section class="checkers-mode-section" aria-label="Мультиплеер">
+            <h4>Мультиплеер</h4>
+            <div class="checkers-actions">
+              <button class="primary-button" id="joinCheckersBtn" type="button">Войти в лобби (мультиплеер)</button>
+              <button class="ghost-button" id="leaveCheckersBtn" type="button">Выйти</button>
+            </div>
+          </section>
+
+          <p class="race-status" id="checkersStatusText">Нажми вход, чтобы сервер подобрал второго игрока.</p>
+          <div class="checkers-player-card" id="checkersYou">
+            <span>Ты</span>
+            <strong>-</strong>
+          </div>
+          <div class="checkers-player-card" id="checkersOpponent">
+            <span>Соперник</span>
+            <strong>-</strong>
+          </div>
+        </aside>
+
+        <section class="checkers-board-area" aria-label="Игра в шашки">
+          <header class="checkers-header">
+            <div>
+              <p class="eyebrow">игра</p>
+              <h2>Шашки beta</h2>
+            </div>
+            <div class="checkers-header-actions">
+              <span class="checkers-result-badge" id="checkersResultBadge" hidden></span>
+              <span class="mood" id="checkersBadge">LOBBY</span>
+              <button class="ghost-button checkers-back-button" id="closeCheckersBtn" type="button">
+                <span aria-hidden="true">←</span>
+                <span>Назад в TenderBomb</span>
+              </button>
+            </div>
+          </header>
+
+          <div class="checkers-clock-row" aria-label="Время игроков">
+            <div class="checkers-clock" id="checkersWhiteClock">
+              <span>Белые</span>
+              <strong>00:00</strong>
+            </div>
+            <div class="checkers-clock" id="checkersBlackClock">
+              <span>Черные</span>
+              <strong>00:00</strong>
+            </div>
+          </div>
+
+          <div class="checkers-turnbar">
+            <div class="checkers-side" id="checkersWhite">
+              <span class="checker-dot checker-dot-white"></span>
+              <span>Белые</span>
+            </div>
+            <div class="checkers-side" id="checkersBlack">
+              <span class="checker-dot checker-dot-black"></span>
+              <span>Черные</span>
+            </div>
+          </div>
+          <div class="checkers-board-shell">
+            <div class="checkers-board" id="checkersBoard" aria-label="Игровая доска"></div>
+          </div>
+        </section>
+
+        <aside class="checkers-panel checkers-log-panel" aria-label="Ход партии">
+          <div>
+            <p class="eyebrow">ход партии</p>
+            <h3 id="checkersTurnTitle">Ожидание</h3>
+          </div>
+          <ol class="checkers-log" id="checkersLog"></ol>
+        </aside>
+      </main>
+
+      <main class="tanks-screen" id="tanksView" aria-label="Танчики beta" hidden>
+        <aside class="tanks-panel tanks-lobby" aria-label="Вход в танчики">
+          <div>
+            <p class="eyebrow">beta</p>
+            <h3>Танчики</h3>
+          </div>
+          <label class="player-field">
+            <span>Имя</span>
+            <input id="tanksName" type="text" maxlength="32" autocomplete="nickname">
+          </label>
+          <div class="race-actions">
+            <button class="ghost-button" id="saveTanksNameBtn" type="button">Сохранить ник</button>
+            <button class="primary-button" id="startTanksBtn" type="button">Старт</button>
+          </div>
+          <p class="race-status" id="tanksStatusText">База готова к обороне.</p>
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">рекорды</p>
+              <h3>Лидерборд</h3>
+            </div>
+            <span class="mood" id="tanksLeaderboardBadge">OFFLINE</span>
+          </div>
+          <section class="leaderboard-table">
+            <div class="leaderboard-title"><span>Танчики</span><span id="tanksLeaderboardCount">0</span></div>
+            <ol class="leaderboard tanks-leaderboard" id="tanksLeaderboard"></ol>
+          </section>
+        </aside>
+
+        <section class="tanks-board-area" aria-label="Игра Танчики">
+          <header class="tanks-header">
+            <div>
+              <p class="eyebrow">мини-игра</p>
+              <h2>Танчики beta</h2>
+            </div>
+            <div class="tanks-header-actions">
+              <span class="mood" id="tanksBadge">READY</span>
+              <button class="ghost-button tanks-back-button" id="closeTanksBtn" type="button">
+                <span aria-hidden="true">←</span>
+                <span>Назад в TenderBomb</span>
+              </button>
+            </div>
+          </header>
+
+          <div class="tanks-stats-row" aria-live="polite">
+            <div class="stat tanks-stat" aria-label="Уровень">
+              <span class="tanks-stat-icon tanks-icon-level" aria-hidden="true"></span>
+              <span class="tanks-stat-copy">
+                <span class="stat-value" id="tanksLevel">1/∞</span>
+                <span class="stat-label">уровень</span>
+              </span>
+            </div>
+            <div class="stat tanks-stat" aria-label="Очки">
+              <span class="tanks-stat-icon tanks-icon-score" aria-hidden="true"></span>
+              <span class="tanks-stat-copy">
+                <span class="stat-value" id="tanksScore">0</span>
+                <span class="stat-label">очки</span>
+              </span>
+            </div>
+            <div class="stat tanks-stat tanks-stat-lives" aria-label="Жизни">
+              <span class="tanks-stat-icon tanks-icon-heart" aria-hidden="true"></span>
+              <span class="stat-value" id="tanksLives">3</span>
+            </div>
+            <div class="stat tanks-stat" aria-label="Враги">
+              <span class="tanks-stat-icon tanks-icon-enemy" aria-hidden="true"></span>
+              <span class="tanks-stat-copy">
+                <span class="stat-value" id="tanksEnemies">0/0</span>
+                <span class="stat-label">враги</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="tanks-target-row">
+            <span id="tanksWaveText">Готов к первой волне</span>
+            <strong id="tanksTimer">00:00</strong>
+          </div>
+          <div class="progress-track tanks-progress" aria-hidden="true">
+            <span class="progress-fill" id="tanksProgressFill"></span>
+          </div>
+          <div class="tanks-board-shell">
+            <canvas class="tanks-canvas" id="tanksCanvas" width="512" height="512" aria-label="Арена танчиков"></canvas>
+          </div>
+        </section>
+
+        <aside class="tanks-panel tanks-log-panel" aria-label="Управление и ход танчиков">
+          <section class="tanks-help-panel" aria-label="Управление танком">
+            <p class="eyebrow">управление</p>
+            <div class="tanks-help-list">
+              <div class="tanks-help-block tanks-help-block-move">
+                <div class="tanks-key-clusters">
+                  <div class="tanks-key-group" aria-label="WASD">
+                    <div class="tanks-key-row tanks-key-row-center">
+                      <span class="tanks-keycap">W</span>
+                    </div>
+                    <div class="tanks-key-row">
+                      <span class="tanks-keycap">A</span>
+                      <span class="tanks-keycap">S</span>
+                      <span class="tanks-keycap">D</span>
+                    </div>
+                  </div>
+                  <div class="tanks-key-group" aria-label="Стрелки">
+                    <div class="tanks-key-row tanks-key-row-center">
+                      <span class="tanks-keycap">↑</span>
+                    </div>
+                    <div class="tanks-key-row">
+                      <span class="tanks-keycap">←</span>
+                      <span class="tanks-keycap">↓</span>
+                      <span class="tanks-keycap">→</span>
+                    </div>
+                  </div>
+                </div>
+                <strong>Движение</strong>
+              </div>
+              <div class="tanks-help-actions">
+                <div class="tanks-help-action">
+                  <span class="tanks-keycap tanks-keycap-space">Пробел</span>
+                  <strong>Огонь</strong>
+                </div>
+                <div class="tanks-help-action">
+                  <span class="tanks-keycap tanks-keycap-esc">ESC</span>
+                  <strong>Пауза</strong>
+                </div>
+              </div>
+            </div>
+          </section>
+          <div>
+            <p class="eyebrow">раунд</p>
+            <h3 id="tanksLogTitle">Ожидание</h3>
+          </div>
+          <ol class="checkers-log tanks-log" id="tanksLog"></ol>
+        </aside>
+      </main>
+    </div>
+
+    <div class="result-modal" id="resultModal" hidden>
+      <div class="result-dialog" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+        <p class="eyebrow" id="resultEyebrow">протокол</p>
+        <h2 id="resultTitle">Раунд завершен</h2>
+        <p id="resultText"></p>
+        <div class="result-actions">
+          <button class="primary-button" id="modalNewGameBtn" type="button">Новый аукцион</button>
+          <button class="ghost-button" id="closeModalBtn" type="button">Посмотреть поле</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="leaderboard-cache.js" defer></script>
+    <script src="game.js" defer></script>
+    <script src="checkers.js" defer></script>
+    <script src="tanks.js" defer></script>
+  </body>
+</html>

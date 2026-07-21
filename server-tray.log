@@ -1,0 +1,9 @@
+
+TenderBomb records server
+=========================
+Local: http://localhost:8080/
+LAN:   http://192.168.65.75:8080/
+
+Commands: god <nick>, ungod <nick>, stealth, restart, exit, quit
+Keep this window open while colleagues are playing.
+
