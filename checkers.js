@@ -1072,21 +1072,12 @@
     return true;
   }
 
-  function syncMainPlayerName(name) {
-    const mainName = document.querySelector("#playerName");
-    if (!mainName) return;
-    mainName.value = name;
-    mainName.dispatchEvent(new Event("input", { bubbles: true }));
-  }
-
   function getCheckersClientId() {
-    try {
-      const created = window.crypto?.randomUUID?.() || `checkers-${Date.now()}-${Math.random()}`;
-      window.sessionStorage.setItem("tenderBombCheckersClientId", created);
-      return created;
-    } catch (error) {
-      return `checkers-${Date.now()}-${Math.random()}`;
-    }
+    const existing = window.sessionStorage.getItem("tenderBombCheckersClientId");
+    if (existing) return existing;
+    const created = window.crypto?.randomUUID?.() || `checkers-${Date.now()}-${Math.random()}`;
+    window.sessionStorage.setItem("tenderBombCheckersClientId", created);
+    return created;
   }
 
   async function checkersGet(url) {

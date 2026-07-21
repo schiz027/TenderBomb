@@ -5,7 +5,7 @@ Add-Type -AssemblyName System.Drawing
 
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$root = (Get-Location).Path
 $port = 8080
 $serverScript = Join-Path $root "server.py"
 $stdoutLog = Join-Path $root "server-tray.log"
@@ -24,7 +24,7 @@ function Resolve-PythonLaunch {
   if (Test-Path -LiteralPath $localPython) {
     $candidates += Get-ChildItem -LiteralPath $localPython -Filter python.exe -Recurse -ErrorAction SilentlyContinue |
       Where-Object { $_.FullName -like "*pythoncore*" } |
-      Sort-Object FullName -Descending |
+      Sort-Object -Property FullName -Descending |
       ForEach-Object { $_.FullName }
     $candidates += Join-Path $localPython "bin\python.exe"
   }
@@ -56,30 +56,6 @@ function Resolve-PythonLaunch {
   throw "Python was not found"
 }
 
-function Quote-ProcessArgument {
-  param([string]$Value)
-  if ($Value -notmatch '[\s"]') {
-    return $Value
-  }
-  $escaped = $Value.Replace('"', '\"')
-  return '"' + $escaped + '"'
-}
-
-function Start-HiddenProcess {
-  param(
-    [string]$FilePath,
-    [string[]]$Args
-  )
-  $psi = New-Object System.Diagnostics.ProcessStartInfo
-  $psi.FileName = $FilePath
-  $psi.Arguments = (($Args | ForEach-Object { Quote-ProcessArgument $_ }) -join " ")
-  $psi.WorkingDirectory = $root
-  $psi.UseShellExecute = $false
-  $psi.CreateNoWindow = $true
-  $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-  return [System.Diagnostics.Process]::Start($psi)
-}
-
 function Test-TenderBombHealth {
   try {
     $response = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$port/api/health" -TimeoutSec 1
@@ -89,32 +65,22 @@ function Test-TenderBombHealth {
   }
 }
 
-function Normalize-ProcessPathEnvironment {
-  $pathValue = [Environment]::GetEnvironmentVariable("Path", "Process")
-  if (-not $pathValue) {
-    $pathValue = [Environment]::GetEnvironmentVariable("PATH", "Process")
-  }
-  if ($pathValue) {
-    [Environment]::SetEnvironmentVariable("PATH", $null, "Process")
-    [Environment]::SetEnvironmentVariable("Path", $pathValue, "Process")
-  }
-}
-
 function Start-TenderBombServer {
   Write-TrayLog "Starting server"
   $launch = Resolve-PythonLaunch
   Write-TrayLog "Python: $($launch.FilePath)"
   Write-TrayLog "Args: $($launch.Args -join ' ')"
-  Normalize-ProcessPathEnvironment
 
-  $process = Start-Process `
-    -FilePath $launch.FilePath `
-    -ArgumentList $launch.Args `
-    -WorkingDirectory $root `
-    -WindowStyle Hidden `
-    -RedirectStandardOutput $stdoutLog `
-    -RedirectStandardError $stderrLog `
-    -PassThru
+  $startArgs = @{
+    FilePath               = $launch.FilePath
+    ArgumentList           = $launch.Args
+    WorkingDirectory       = $root
+    WindowStyle            = "Hidden"
+    RedirectStandardOutput = $stdoutLog
+    RedirectStandardError  = $stderrLog
+    PassThru               = $true
+  }
+  $process = Start-Process @startArgs
 
   Start-Sleep -Milliseconds 500
   if ($process.HasExited) {
@@ -192,7 +158,7 @@ function Open-TenderBombConsole {
     $restartItem.Enabled = $false
     $timer.Stop()
     Write-TrayLog "Switching to console mode"
-    Stop-TenderBombServer
+    Stop-TenderBombServer | Out-Null
     $bat = Join-Path $root "start-server.bat"
     Start-Process -FilePath $bat -WorkingDirectory $root
     $notify.Visible = $false
@@ -215,14 +181,20 @@ $script:isRestarting = $false
 
 $appContext = New-Object System.Windows.Forms.ApplicationContext
 $notify = New-Object System.Windows.Forms.NotifyIcon
-$notify.Icon = [System.Drawing.SystemIcons]::Shield
+$iconPath = Join-Path $root "assets\bomb.ico"
+if (Test-Path -LiteralPath $iconPath) {
+    $notify.Icon = New-Object System.Drawing.Icon($iconPath)
+} else {
+    Write-TrayLog "Icon not found at $iconPath, using default."
+    $notify.Icon = [System.Drawing.SystemIcons]::Shield
+}
 $notify.Text = "TenderBomb server"
 $notify.Visible = $true
 
 $menu = New-Object System.Windows.Forms.ContextMenuStrip
-$consoleItem = $menu.Items.Add("Открыть консоль")
-$restartItem = $menu.Items.Add("Рестарт")
-$exitItem = $menu.Items.Add("Выход")
+$consoleItem = $menu.Items.Add("Развернуть из трея")
+$restartItem = $menu.Items.Add("Перезапуск")
+$exitItem = $menu.Items.Add("Остановить сервер")
 $notify.ContextMenuStrip = $menu
 
 $consoleItem.Add_Click({

@@ -72,6 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
   cacheElements();
   initializeTheme();
   bindControls();
+  setupStatusIcons();
   startGame("express");
   initializeMultiplayer();
 });
@@ -118,6 +119,7 @@ function bindControls() {
     render();
   });
   els.fasBtn.addEventListener("click", handleFas);
+  els.fasBtn.title = "Проверить область 3x3: вскрывает безопасные разделы и подсвечивает риски.";
   els.extractBtn.addEventListener("click", useExtract);
 
   els.modeButtons.forEach((button) => {
@@ -146,6 +148,79 @@ function bindControls() {
     if (!state) return;
     renderBoard();
   });
+
+  // --- Delegated Board Event Listeners ---
+  els.board.addEventListener("click", (event) => {
+    const button = event.target.closest("button.cell");
+    if (!button) return;
+    const index = Number(button.dataset.index);
+    if (state.fasTargetingMode) {
+      applyFasCheck(index);
+    } else if (state.flagMode) {
+      toggleFlag(index);
+    } else {
+      revealCell(index);
+    }
+  });
+
+  els.board.addEventListener("contextmenu", (event) => {
+    const button = event.target.closest("button.cell");
+    if (!button) return;
+    event.preventDefault();
+    const index = Number(button.dataset.index);
+    toggleFlag(index);
+  });
+
+}
+
+function setupStatusIcons() {
+  const iconMap = {
+    risksLeft: "assets/zakryvashka-bomb-icon.png",
+    flagsUsed: "assets/icon-flag.svg",
+    safeLeft: "assets/icon-grid.svg",
+    timer: "assets/icon-clock.svg",
+  };
+
+  for (const id in iconMap) {
+    const el = document.getElementById(id);
+    if (el && el.parentElement && !el.parentElement.querySelector(".status-icon")) {
+      const img = document.createElement("img");
+      img.src = iconMap[id];
+      img.alt = "";
+      img.classList.add("status-icon");
+      if (id === "risksLeft") {
+        img.classList.add("status-icon-bomb");
+      }
+      el.parentElement.insertBefore(img, el.parentElement.firstChild);
+    }
+  }
+
+  const styleId = "tenderbomb-status-icons-style";
+  let style = document.getElementById(styleId);
+  if (!style) {
+    style = document.createElement("style");
+    style.id = styleId;
+    document.head.appendChild(style);
+  }
+  style.textContent = `
+    .status-bar .status-item { 
+      position: relative; 
+      padding-left: 2.5rem; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+    }
+    .status-icon { 
+      position: absolute; 
+      left: 1.25rem; 
+      top: 50%; 
+      transform: translateY(-50%); 
+      width: 1.6rem; 
+      height: 1.6rem; 
+      object-fit: contain; 
+    }
+    .status-icon-bomb { width: 2rem; height: 2rem; left: 1.1rem; }
+  `;
 }
 
 function initializeTheme() {
@@ -455,6 +530,8 @@ async function savePlayerName() {
     showNameRequiredError();
     return false;
   }
+  // Dispatch event before making API calls to ensure UI consistency
+  window.dispatchEvent(new CustomEvent("tenderBombNameSaved", { detail: { name } }));
   multiplayer.playerName = name;
   multiplayer.nameError = "";
   window.localStorage.setItem("tenderBombPlayerName", name);
@@ -472,6 +549,8 @@ async function savePlayerName() {
         els.playerName.value = data.player;
         window.localStorage.setItem("tenderBombPlayerName", data.player);
       }
+      // Dispatch again with server-confirmed name if it changed
+      if (data.player && data.player !== name) window.dispatchEvent(new CustomEvent("tenderBombNameSaved", { detail: { name: data.player } }));
       addLog("Ник сохранен", `Ник ${multiplayer.playerName} закреплен за этим локальным IP.`, "info");
     } catch (error) {
       addLog("Ник сохранен локально", "Сервер не ответил, но браузер запомнил ник.", "warn");
@@ -558,6 +637,7 @@ function startGame(modeId) {
     extractUsed: false,
     fasCharges: mode.fasCharges,
     logItems: [],
+    fasTargetingMode: false,
     boardReady: false,
     resultSent: false,
     serverRoundId: "",
@@ -720,24 +800,9 @@ function toggleFlag(index) {
 function handleFas() {
   if (!canPlay() || state.firstMove || state.fasCharges <= 0) return;
   if (!requireSavedPlayerName()) return;
-  state.fasCharges -= 1;
 
-  if (Math.random() < 0.66) {
-    const neutralized = neutralizeMines(1);
-    autoRevealSafe(1);
-    addLog(
-      "Жалоба в ФАС",
-      neutralized
-        ? "Одно условие сняли с поля, отдел выдохнул."
-        : "Комиссия уже все расчистила до нас.",
-      "good",
-    );
-  } else {
-    hintRandomMines(1);
-    addLog("Жалоба в ФАС", "Ответ сухой, но один подозрительный участок подсветился.", "warn");
-  }
-
-  checkWin();
+  state.fasTargetingMode = true;
+  addLog("Жалоба в ФАС", "Выберите область 3x3 для проверки.", "info");
   render();
 }
 
@@ -758,6 +823,35 @@ function useExtract() {
       : "Реестр подтвердил позицию, но поле уже почти полностью прочитано.",
     "good",
   );
+
+  checkWin();
+  render();
+}
+
+function applyFasCheck(index) {
+  if (!canPlay() || state.fasCharges <= 0) return;
+
+  state.fasCharges -= 1;
+  state.fasTargetingMode = false;
+
+  const area = [index, ...getNeighbors(index)];
+  let hinted = 0;
+  const before = state.revealed;
+
+  area.forEach((cellIndex) => {
+    const cell = state.cells[cellIndex];
+    if (!cell || cell.inactive) return;
+
+    if (cell.mine && !cell.revealed && !cell.flagged) {
+      cell.hinted = true;
+      hinted += 1;
+    } else if (!cell.mine && !cell.revealed && !cell.flagged) {
+      openSafeRegion(cellIndex);
+    }
+  });
+  const opened = state.revealed - before;
+
+  addLog("Проверка ФАС", `В области 3x3 подсвечено рисков: ${hinted}, открыто безопасных: ${opened}.`, "good");
 
   checkWin();
   render();
@@ -943,6 +1037,9 @@ function win(reason) {
 function lose(cell) {
   state.status = "lost";
   stopTimer();
+  state.cells.forEach((c) => {
+    if (c.mine) c.revealed = true;
+  });
   const text = `На разделе "${cell.topic}" сработала закрывашка: позиция в ТЗ совпала с чужим РУ и закрыла вход остальным участникам.`;
   addLog("Закрывашка сработала", text, "bad");
   showResult("Аукцион был под своих", text, "итог");
@@ -995,6 +1092,7 @@ function renderControls() {
     button.disabled = isModeSwitchLocked() && !active;
   });
 
+  els.boardShell.classList.toggle("is-fas-targeting", state.fasTargetingMode);
   els.flagModeBtn.setAttribute("aria-pressed", String(state.flagMode));
   els.fasBtn.disabled = state.firstMove || state.fasCharges <= 0 || !canPlay();
   els.extractBtn.disabled = state.firstMove || state.extractCharges <= 0 || !canPlay();
@@ -1010,21 +1108,6 @@ function renderBoard() {
   els.board.style.setProperty("--rows", state.rows);
   els.board.style.setProperty("--mode-cell-size", cellSizeForMode());
   els.board.innerHTML = state.cells.map(cellTemplate).join("");
-
-  els.board.querySelectorAll("button.cell").forEach((button) => {
-    const index = Number(button.dataset.index);
-    button.addEventListener("click", () => {
-      if (state.flagMode) {
-        toggleFlag(index);
-      } else {
-        revealCell(index);
-      }
-    });
-    button.addEventListener("contextmenu", (event) => {
-      event.preventDefault();
-      toggleFlag(index);
-    });
-  });
 }
 
 function cellSizeForMode() {

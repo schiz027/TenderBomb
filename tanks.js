@@ -54,6 +54,10 @@
     spawned: 0,
     destroyed: 0,
     doubleShot: false,
+    plasmaShot: false,
+    plasmaArmor: false,
+    fastEnemiesUnlocked: false,
+    iceUnlocked: false,
     totalEnemies: 0,
     runStartedAt: 0,
     pausedAt: 0,
@@ -236,6 +240,10 @@
     tanksState.lives = 3;
     tanksState.destroyed = 0;
     tanksState.doubleShot = false;
+    tanksState.plasmaShot = false;
+    tanksState.plasmaArmor = false;
+    tanksState.fastEnemiesUnlocked = false;
+    tanksState.iceUnlocked = false;
     tanksState.runStartedAt = Date.now();
     tanksState.pausedAt = 0;
     tanksState.pausedTotalMs = 0;
@@ -259,6 +267,7 @@
     tanksState.bullets = [];
     tanksState.powerups = [];
     tanksState.effects = [];
+    tanksState.iceUnlocked = tanksState.level >= 4;
     tanksState.spawned = 0;
     tanksState.totalEnemies = Math.min(40, 6 + tanksState.level * 2);
     tanksState.enemiesLeft = tanksState.totalEnemies;
@@ -331,7 +340,7 @@
     const dt = Math.min(33, time - tanksState.lastTime || 16) / 16.6667;
     tanksState.lastTime = time;
     updateTanks(dt);
-    drawTanks();
+    drawTanks(dt);
     renderTanksStats();
     if (tanksState.isOpen && isTanksRunLive()) {
       tanksState.rafId = window.requestAnimationFrame(tanksFrame);
@@ -339,6 +348,7 @@
   }
 
   function updateTanks(dt) {
+    tanksState.elapsedSeconds = currentTanksRunSeconds();
     if (tanksState.status === "wave-clear") {
       tanksState.waveDelay -= dt;
       if (tanksState.waveDelay <= 0) {
@@ -349,7 +359,6 @@
     }
     if (tanksState.status !== "playing") return;
 
-    tanksState.elapsedSeconds = currentTanksRunSeconds();
     spawnEnemies(dt);
     updatePlayer(dt);
     if (tanksState.status !== "playing") return;
@@ -372,40 +381,51 @@
       dir: "up",
       cooldown: 0,
       invuln: 90,
+      sliding: false,
     };
   }
 
   function createEnemy(spawn) {
     const levelBoost = Math.min(1.1, tanksState.level * 0.035);
+    let type = "normal";
+    let hp = 1;
+    if (tanksState.level >= 5 && tanksState.fastEnemiesUnlocked && Math.random() < 0.4) {
+      type = "fast";
+    } else if (tanksState.level % 4 === 0 && Math.random() < 0.35) {
+      type = "heavy";
+      hp = 2;
+    }
     return {
       x: spawn.x,
       y: spawn.y,
       w: TANK,
       h: TANK,
       dir: "down",
-      speed: 1.08 + levelBoost,
+      speed: type === "fast" ? 1.9 + levelBoost : 1.08 + levelBoost,
       cooldown: 40 + Math.random() * 45,
       turnTimer: 18 + Math.random() * 70,
-      type: tanksState.level % 4 === 0 && Math.random() < 0.35 ? "heavy" : "normal",
-      hp: tanksState.level % 4 === 0 && Math.random() < 0.35 ? 2 : 1,
+      type,
+      hp,
       wobble: Math.random() * 100,
+      sliding: false,
     };
   }
 
   function createLevelMap(level) {
     const map = Array.from({ length: GRID }, () => Array.from({ length: GRID }, () => 0));
+    const random = Math.random;
     const rand = seededRandom(level * 913 + 41);
     const middle = Math.floor(GRID / 2);
 
     for (let row = 2; row <= 5; row += 1) {
       [1, 3, 5].forEach((col) => {
-        if (rand() > 0.28) placeMirroredCell(map, row, col, 1);
+        if (random() > 0.28) placeMirroredCell(map, row, col, 1);
       });
     }
 
     for (let row = 9; row <= 12; row += 1) {
       [1, 4, 6].forEach((col) => {
-        if (rand() > 0.34) placeMirroredCell(map, row, col, 1);
+        if (random() > 0.34) placeMirroredCell(map, row, col, 1);
       });
     }
 
@@ -418,10 +438,36 @@
       [11, 5],
     ].forEach(([row, col]) => placeMirroredCell(map, row, col, 2));
 
+    if (level >= 5) {
+      const steelCount = 2 + Math.floor(level / 3);
+      for (let i = 0; i < steelCount; i += 1) {
+        if (random() > 0.45) {
+          const row = 3 + Math.floor(random() * (GRID - 8));
+          const col = 2 + Math.floor(random() * (GRID - 4));
+          if (map[row]?.[col] === 0 && !isProtectedTanksCell(row, col)) {
+            placeMirroredCell(map, row, col, 2);
+          }
+        }
+      }
+    }
+
+    if (level >= 4) {
+      const icePatches = 2 + Math.floor(level / 4);
+      for (let i = 0; i < icePatches; i += 1) {
+        if (random() > 0.3) {
+          const row = 4 + Math.floor(random() * (GRID - 9));
+          const col = 3 + Math.floor(random() * (GRID - 6));
+          if (map[row]?.[col] === 0 && !isProtectedTanksCell(row, col)) {
+            placeMirroredCell(map, row, col, 5); // 5 is ice
+          }
+        }
+      }
+    }
+
     for (let col = 2; col < GRID - 2; col += 1) {
       if (col >= middle - 1 && col <= middle) continue;
-      if (rand() > 0.76) placeCell(map, middle - 1, col, 1);
-      if (rand() > 0.8) placeCell(map, middle + 1, col, 1);
+      if (random() > 0.76) placeCell(map, middle - 1, col, 1);
+      if (random() > 0.8) placeCell(map, middle + 1, col, 1);
     }
 
     clearSpawnAreas(map);
@@ -488,14 +534,15 @@
   }
 
   function placeLifeCrates(map, level, rand) {
+    const random = Math.random;
     if (level < 2) return;
-    const target = level >= 3 ? 3 : 2 + (rand() > 0.45 ? 1 : 0);
+    const target = level >= 3 ? 3 : 2 + (random() > 0.45 ? 1 : 0);
     let placed = 0;
     let attempts = 0;
     while (placed < target && attempts < 300) {
       attempts += 1;
-      const row = 3 + Math.floor(rand() * (GRID - 7));
-      const col = 2 + Math.floor(rand() * (GRID - 4));
+      const row = 3 + Math.floor(random() * (GRID - 7));
+      const col = 2 + Math.floor(random() * (GRID - 4));
       if (map[row]?.[col] !== 0 || isProtectedTanksCell(row, col)) continue;
       map[row][col] = 4;
       placed += 1;
@@ -503,18 +550,46 @@
   }
 
   function placeLevelPowerups() {
-    if (tanksState.level < 3 || tanksState.doubleShot) return;
-    const row = Math.floor(GRID / 2);
-    const col = Math.floor(GRID / 2);
-    clearTanksCells(tanksState.map, row - 1, row + 1, col - 1, col + 1);
-    tanksState.powerups.push({
-      type: "double",
-      x: col * TILE + 4,
-      y: row * TILE + 4,
-      w: 24,
-      h: 24,
-      age: 0,
-    });
+    if (tanksState.level >= 5 && !tanksState.plasmaShot) {
+      const row = 6;
+      const col = Math.floor(GRID / 2);
+      clearTanksCells(tanksState.map, row - 1, row + 1, col - 1, col + 1);
+      tanksState.powerups.push({
+        type: "plasma",
+        x: col * TILE + 4,
+        y: row * TILE + 4,
+        w: 24,
+        h: 24,
+        age: 0,
+      });
+    }
+    if (tanksState.level >= 3 && !tanksState.doubleShot) {
+      const row = 10;
+      const col = Math.floor(GRID / 2);
+      clearTanksCells(tanksState.map, row - 1, row + 1, col - 1, col + 1);
+      tanksState.powerups.push({
+        type: "double",
+        x: col * TILE + 4,
+        y: row * TILE + 4,
+        w: 24,
+        h: 24,
+        age: 0,
+      });
+    }
+    if (tanksState.level >= 8) {
+      const row = Math.floor(GRID / 2) - 1;
+      const col = 4;
+      clearTanksCells(tanksState.map, row - 1, row + 1, col - 1, col + 1);
+      tanksState.powerups.push({
+        type: "freeze",
+        x: col * TILE + 4,
+        y: row * TILE + 4,
+        w: 24,
+        h: 24,
+        age: 0,
+      });
+      placeMirroredCell(tanksState.map, row, col, 0);
+    }
   }
 
   function enemySpawnPoints() {
@@ -538,11 +613,10 @@
     if (tanksState.spawned >= tanksState.totalEnemies || tanksState.enemies.length >= maxActive) return;
     tanksState.spawnCooldown -= dt;
     if (tanksState.spawnCooldown > 0) return;
-
-    const spawnPoints = enemySpawnPoints();
-    const startIndex = (tanksState.spawned + tanksState.level) % spawnPoints.length;
-    for (let i = 0; i < spawnPoints.length; i += 1) {
-      const spawn = spawnPoints[(startIndex + i) % spawnPoints.length];
+ 
+    for (let i = 0; i < 10; i += 1) {
+      const col = Math.floor(Math.random() * GRID);
+      const spawn = { x: col * TILE + 4, y: 4 };
       const probe = { x: spawn.x, y: spawn.y, w: TANK, h: TANK };
       if (!rectHitsSolid(probe) && !rectHitsTanks(probe, null)) {
         tanksState.enemies.push(createEnemy(spawn));
@@ -559,17 +633,27 @@
     player.cooldown = Math.max(0, player.cooldown - dt);
     player.invuln = Math.max(0, player.invuln - dt);
 
-    const dir = activePlayerDirection();
-    if (dir) {
-      player.dir = dir;
-      moveTank(player, dir, PLAYER_SPEED * dt, "player");
+    const onIce = isOnIce(player);
+    if (onIce) {
+      player.sliding = true;
+    } else if (player.sliding) {
+      player.sliding = false;
+    }
+
+    const inputDir = activePlayerDirection();
+    if (inputDir && !player.sliding) player.dir = inputDir;
+    if (inputDir || player.sliding) {
+      moveTank(player, player.dir, PLAYER_SPEED * dt, "player");
     }
     if (isFireActive()) fireBullet(player, "player");
   }
 
   function activePlayerDirection() {
-    if (tanksState.lastDirection && tanksState.keys[tanksState.lastDirection]) return tanksState.lastDirection;
-    return ["up", "down", "left", "right"].find((dir) => tanksState.keys[dir]) || null;
+    const order = ["up", "down", "left", "right"];
+    if (tanksState.lastDirection && !order.includes(tanksState.lastDirection)) {
+      tanksState.lastDirection = null;
+    }
+    return order.find((dir) => tanksState.keys[dir] && dir === tanksState.lastDirection) || order.find((dir) => tanksState.keys[dir]) || null;
   }
 
   function isFireActive() {
@@ -600,6 +684,25 @@
       tanksState.score += 180;
       addEffect(powerup.x + powerup.w / 2, powerup.y + powerup.h / 2, "upgrade");
       addTanksLog("Апгрейд", "Двойной ствол активирован.", "good");
+    } else if (powerup.type === "plasma") {
+      tanksState.plasmaShot = true;
+      tanksState.score += 350;
+      addEffect(powerup.x + powerup.w / 2, powerup.y + powerup.h / 2, "plasma");
+      addTanksLog("Плазма", "Снаряды пробивают сталь.", "good");
+      tanksState.plasmaArmor = true;
+      addTanksLog("Щит", "Плазменный щит поглотит одно попадание.", "good");
+      if (tanksState.level >= 5 && !tanksState.fastEnemiesUnlocked) {
+        tanksState.fastEnemiesUnlocked = true;
+        addTanksLog("Внимание", "Противник вывел на поле быстрые танки!", "bad");
+      }
+    } else if (powerup.type === "freeze") {
+      tanksState.score += 250;
+      addEffect(powerup.x + powerup.w / 2, powerup.y + powerup.h / 2, "upgrade");
+      addTanksLog("Заморозка", "Все враги на поле обездвижены.", "good");
+      tanksState.enemies.forEach((enemy) => {
+        enemy.frozen = 180;
+        addEffect(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2, "upgrade");
+      });
     }
     renderTanksStatic();
   }
@@ -607,15 +710,26 @@
   function updateEnemies(dt) {
     tanksState.enemies.forEach((enemy) => {
       enemy.cooldown = Math.max(0, enemy.cooldown - dt);
-      enemy.turnTimer -= dt;
+      if (enemy.frozen > 0) {
+        enemy.frozen -= dt;
+        return;
+      }
 
-      if (enemy.turnTimer <= 0) {
+      enemy.turnTimer -= dt;
+      const onIce = isOnIce(enemy);
+      if (onIce) {
+        enemy.sliding = true;
+      } else if (enemy.sliding) {
+        enemy.sliding = false;
+      }
+
+      if (enemy.turnTimer <= 0 && !enemy.sliding) {
         enemy.dir = chooseEnemyDirection(enemy);
         enemy.turnTimer = 28 + Math.random() * 80;
       }
 
       const moved = moveTank(enemy, enemy.dir, enemy.speed * dt, "enemy");
-      if (!moved) {
+      if (!moved && !enemy.sliding) {
         enemy.dir = chooseEnemyDirection(enemy, true);
         enemy.turnTimer = 22 + Math.random() * 44;
       }
@@ -740,7 +854,7 @@
     const cells = cellsForRect(rect);
     return cells.some(({ row, col }) => {
       const value = tanksState.map[row]?.[col] || 0;
-      return value === 1 || value === 2 || value === 3 || value === 4;
+      return value === 1 || value === 2 || value === 3 || value === 4; // Ice (5) is not solid
     });
   }
 
@@ -792,10 +906,14 @@
     const y = row * TILE + TILE / 2;
     if (value === 1) {
       tanksState.map[row][col] = 0;
-      if (bullet.owner === "player") tanksState.score += 4;
+      if (bullet.owner === "player") tanksState.score += tanksState.iceUnlocked ? 2 : 4;
       addEffect(x, y, "brick");
     } else if (value === 2) {
-      addEffect(x, y, "steel");
+      if (bullet.owner === "player" && tanksState.plasmaShot) {
+        tanksState.map[row][col] = 0;
+        tanksState.score += 15;
+      }
+      addEffect(x, y, bullet.owner === "player" && tanksState.plasmaShot ? "brick" : "steel");
     } else if (value === 3) {
       damageBase();
     } else if (value === 4) {
@@ -803,6 +921,8 @@
       if (bullet.owner === "player") tanksState.score += 20;
       spawnLifePowerup(row, col);
       addEffect(x, y, "crate");
+    } else if (value === 5) {
+      addEffect(x, y, "steel");
     }
   }
 
@@ -836,6 +956,14 @@
       tanksState.player.invuln = 80;
       addEffect(tanksState.player.x + TANK / 2, tanksState.player.y + TANK / 2, "hit");
       addTanksLog("Режим бога", "Попадание не сняло жизнь.", "good");
+      renderTanksStatic();
+      return;
+    }
+    if (tanksState.plasmaArmor) {
+      tanksState.plasmaArmor = false;
+      tanksState.player.invuln = 80;
+      addEffect(tanksState.player.x + TANK / 2, tanksState.player.y + TANK / 2, "plasma");
+      addTanksLog("Щит пробит", "Плазменный щит разрушен.", "warn");
       renderTanksStatic();
       return;
     }
@@ -933,7 +1061,7 @@
     const ctx = canvas.getContext("2d");
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, SIZE, SIZE);
-    ctx.fillStyle = "#000";
+    ctx.fillStyle = tanksState.iceUnlocked ? "#343b54" : "#000";
     ctx.fillRect(0, 0, SIZE, SIZE);
     drawMap(ctx);
     tanksState.powerups.forEach((powerup) => drawPowerup(ctx, powerup));
@@ -971,6 +1099,7 @@
         if (value === 2) drawSteel(ctx, x, y);
         if (value === 3) drawBase(ctx, x, y);
         if (value === 4) drawCrate(ctx, x, y);
+        if (value === 5) drawIce(ctx, x, y);
       }
     }
   }
@@ -978,11 +1107,11 @@
   function drawBrick(ctx, x, y) {
     ctx.fillStyle = "#d33a18";
     ctx.fillRect(x, y, TILE, TILE);
-    ctx.fillStyle = "#ff7b22";
+    ctx.fillStyle = tanksState.iceUnlocked ? "#e0e8f7" : "#ff7b22";
     for (let yy = 2; yy < TILE; yy += 8) {
       ctx.fillRect(x + 1, y + yy, TILE - 2, 2);
     }
-    ctx.fillStyle = "#641c15";
+    ctx.fillStyle = tanksState.iceUnlocked ? "#6b7a9e" : "#641c15";
     for (let yy = 0; yy < TILE; yy += 8) {
       const offset = yy % 16 === 0 ? 0 : 8;
       for (let xx = offset; xx < TILE; xx += 16) {
@@ -992,14 +1121,23 @@
   }
 
   function drawSteel(ctx, x, y) {
-    ctx.fillStyle = "#aeb0ac";
+    ctx.fillStyle = tanksState.iceUnlocked ? "#8c95b3" : "#aeb0ac";
     ctx.fillRect(x, y, TILE, TILE);
-    ctx.fillStyle = "#f2f2ed";
+    ctx.fillStyle = tanksState.iceUnlocked ? "#f0f5ff" : "#f2f2ed";
     ctx.fillRect(x + 3, y + 3, 10, 10);
     ctx.fillRect(x + 19, y + 19, 10, 10);
-    ctx.fillStyle = "#666a6b";
+    ctx.fillStyle = tanksState.iceUnlocked ? "#555c70" : "#666a6b";
     ctx.fillRect(x + 4, y + 20, 9, 8);
     ctx.fillRect(x + 20, y + 4, 8, 9);
+  }
+
+  function drawIce(ctx, x, y) {
+    ctx.fillStyle = "#83a7d1";
+    ctx.fillRect(x, y, TILE, TILE);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.fillRect(x + 4, y + 4, 10, 3);
+    ctx.fillRect(x + 18, y + 9, 10, 3);
+    ctx.fillRect(x + 7, y + 22, 12, 4);
   }
 
   function drawCrate(ctx, x, y) {
@@ -1042,11 +1180,29 @@
         ? { body: "#e7f3ff", track: "#4d789c", dark: "#1d3148", light: "#ffffff" }
         : type === "heavy"
           ? { body: "#f0b949", track: "#8d4a18", dark: "#4b2410", light: "#ffe79b" }
+          : type === "fast"
+            ? { body: "#ff756b", track: "#b82e2e", dark: "#5c1a1a", light: "#ffc6c2" }
           : { body: "#b9c0be", track: "#686f71", dark: "#252b2c", light: "#f1f1ed" };
     const x = Math.round(tank.x);
     const y = Math.round(tank.y);
     const flashing = type === "player" && tank.invuln > 0 && Math.floor(tank.invuln / 8) % 2 === 0;
     if (flashing) return;
+
+    if (tank.frozen > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.5 + Math.sin(performance.now() / 100) * 0.25;
+      ctx.fillStyle = "#a6d6ff";
+    }
+
+    if (type === "player" && tanksState.plasmaArmor) {
+      ctx.save();
+      ctx.globalAlpha = 0.4 + Math.sin(performance.now() / 150) * 0.2;
+      ctx.fillStyle = "#d86ce8";
+      ctx.beginPath();
+      ctx.arc(x + tank.w / 2, y + tank.h / 2, 18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
 
     ctx.save();
     ctx.translate(x + tank.w / 2, y + tank.h / 2);
@@ -1073,6 +1229,11 @@
     }
     ctx.fillRect(9, 10, 7, 7);
     ctx.restore();
+
+    if (tank.frozen > 0) {
+      ctx.fillRect(x - 2, y - 2, tank.w + 4, tank.h + 4);
+      ctx.restore();
+    }
   }
 
   function rotateToDir(ctx, dir) {
@@ -1092,6 +1253,10 @@
       drawPixelHeart(ctx, Math.round(powerup.x), Math.round(powerup.y + (pulse ? -1 : 0)), 3);
     } else if (powerup.type === "double") {
       drawDoubleBarrelUpgrade(ctx, Math.round(powerup.x), Math.round(powerup.y + (pulse ? -1 : 0)));
+    } else if (powerup.type === "freeze") {
+      drawFreezeUpgrade(ctx, Math.round(powerup.x), Math.round(powerup.y + (pulse ? -1 : 0)));
+    } else if (powerup.type === "plasma") {
+      drawPlasmaUpgrade(ctx, Math.round(powerup.x), Math.round(powerup.y + (pulse ? -1 : 0)));
     }
   }
 
@@ -1108,6 +1273,34 @@
     ctx.fillRect(x + 4, y + 22, 4, 3);
     ctx.fillRect(x + 10, y + 22, 4, 3);
     ctx.fillRect(x + 16, y + 22, 4, 3);
+  }
+
+  function drawPlasmaUpgrade(ctx, x, y) {
+    ctx.fillStyle = "#481d5c";
+    ctx.fillRect(x + 4, y + 2, 16, 20);
+    ctx.fillStyle = "#d86ce8";
+    ctx.fillRect(x + 7, y + 5, 10, 5);
+    ctx.fillStyle = "#250d30";
+    ctx.fillRect(x + 10, y, 4, 14);
+    ctx.fillRect(x + 7, y + 15, 10, 4);
+    ctx.fillStyle = "#f4f1ea";
+    ctx.fillRect(x + 2, y + 23, 4, 3);
+    ctx.fillRect(x + 10, y + 23, 4, 3);
+    ctx.fillRect(x + 18, y + 23, 4, 3);
+  }
+
+  function drawFreezeUpgrade(ctx, x, y) {
+    ctx.fillStyle = "#2469b8";
+    ctx.fillRect(x + 4, y + 2, 16, 20);
+    ctx.fillStyle = "#a6d6ff";
+    ctx.fillRect(x + 7, y + 5, 10, 5);
+    ctx.fillStyle = "#122942";
+    ctx.fillRect(x + 10, y, 4, 14);
+    ctx.fillRect(x + 7, y + 15, 10, 4);
+    ctx.fillStyle = "#f4f1ea";
+    ctx.fillRect(x + 2, y + 23, 4, 3);
+    ctx.fillRect(x + 10, y + 23, 4, 3);
+    ctx.fillRect(x + 18, y + 23, 4, 3);
   }
 
   function drawPixelHeart(ctx, x, y, scale) {
@@ -1164,6 +1357,8 @@
             ? "#ff6961"
             : effect.kind === "upgrade"
               ? "#78b7ff"
+              : effect.kind === "plasma"
+                ? "#d86ce8"
               : "#f2f2ed";
     ctx.globalAlpha = Math.max(0, 1 - t);
     ctx.fillRect(Math.round(effect.x - radius / 2), Math.round(effect.y - radius / 2), Math.round(radius), Math.round(radius));
@@ -1201,6 +1396,11 @@
 
   function baseRect() {
     return { x: BASE_COL * TILE + 4, y: BASE_ROW * TILE + 4, w: 24, h: 24 };
+  }
+
+  function isOnIce(tank) {
+    const tile = tileAtPoint(tank.x + tank.w / 2, tank.y + tank.h / 2);
+    return tile?.value === 5;
   }
 
   function rectsOverlap(a, b) {
@@ -1243,13 +1443,15 @@
 
   function handleKeyUp(event) {
     const dir = KEY_DIR[event.code];
-    if (dir) tanksState.keys[dir] = false;
+    if (dir) {
+      tanksState.keys[dir] = false;
+      if (tanksState.lastDirection === dir) tanksState.lastDirection = null;
+    }
     if (event.code === "Space") tanksState.keys.fire = false;
   }
 
   function resetTanksKeys() {
     tanksState.keys = {};
-    tanksState.lastDirection = null;
   }
 
   function isEditableTarget(target) {
@@ -1552,7 +1754,7 @@
               ? `Волна ${tanksState.level}: осталось ${Math.max(0, tanksState.enemiesLeft)}`
               : "Готов к первой волне";
     tanksEls.timer.textContent = formatTanksTime(tanksState.elapsedSeconds);
-    tanksEls.progressFill.style.width = `${Math.max(0, Math.min(100, progress))}%`;
+    tanksEls.progressFill.style.width = `${progress}%`;
   }
 
   function renderTanksLeaderboard() {
