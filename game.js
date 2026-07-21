@@ -119,7 +119,7 @@ function bindControls() {
     render();
   });
   els.fasBtn.addEventListener("click", handleFas);
-  els.fasBtn.title = "Проверить область 3x3: вскрывает безопасные разделы и подсвечивает риски.";
+  els.fasBtn.dataset.tip = "Проверить область 3x3: вскрывает безопасные разделы и подсвечивает риски.";
   els.extractBtn.addEventListener("click", useExtract);
 
   els.modeButtons.forEach((button) => {
@@ -203,23 +203,18 @@ function setupStatusIcons() {
     document.head.appendChild(style);
   }
   style.textContent = `
-    .status-bar .status-item { 
-      position: relative; 
-      padding-left: 2.5rem; 
+    .stats-row .stat {
       display: flex; 
       align-items: center; 
       justify-content: center; 
+      gap: 0.5rem;
     }
     .status-icon { 
-      position: absolute; 
-      left: 1.25rem; 
-      top: 50%; 
-      transform: translateY(-50%); 
       width: 1.6rem; 
       height: 1.6rem; 
       object-fit: contain; 
     }
-    .status-icon-bomb { width: 2rem; height: 2rem; left: 1.1rem; }
+    .status-icon-bomb { width: 2rem; height: 2rem; }
   `;
 }
 
