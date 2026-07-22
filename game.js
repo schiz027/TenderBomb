@@ -111,6 +111,7 @@ function cacheElements() {
 }
 
 function bindControls() {
+  let highlightedNeighborElements = [];
   els.newGameBtn.addEventListener("click", () => handleNewRound());
   els.modalNewGameBtn.addEventListener("click", () => handleNewRound());
   els.closeModalBtn.addEventListener("click", hideResult);
@@ -150,6 +151,42 @@ function bindControls() {
   });
 
   // --- Delegated Board Event Listeners ---
+  els.board.addEventListener("mouseover", (event) => {
+    const button = event.target.closest("button.cell");
+
+    // Clear previous highlights
+    highlightedNeighborElements.forEach((el) => el.classList.remove("is-neighbor-hovered"));
+    highlightedNeighborElements = [];
+
+    if (!button || !canPlay()) return;
+
+    const index = Number(button.dataset.index);
+    const cell = state.cells[index];
+
+    // Only highlight for revealed cells with a number > 0
+    if (!cell || !cell.revealed || cell.adjacent === 0) {
+      return;
+    }
+
+    const neighbors = getNeighbors(index);
+    neighbors.forEach((neighborIndex) => {
+      const neighborCell = state.cells[neighborIndex];
+      // Highlight only unrevealed, un-flagged cells
+      if (neighborCell && !neighborCell.revealed && !neighborCell.flagged) {
+        const neighborEl = els.board.querySelector(`button.cell[data-index="${neighborIndex}"]`);
+        if (neighborEl) {
+          neighborEl.classList.add("is-neighbor-hovered");
+          highlightedNeighborElements.push(neighborEl);
+        }
+      }
+    });
+  });
+
+  els.board.addEventListener("mouseleave", () => {
+    highlightedNeighborElements.forEach((el) => el.classList.remove("is-neighbor-hovered"));
+    highlightedNeighborElements = [];
+  });
+
   els.board.addEventListener("click", (event) => {
     const button = event.target.closest("button.cell");
     if (!button) return;
@@ -170,7 +207,6 @@ function bindControls() {
     const index = Number(button.dataset.index);
     toggleFlag(index);
   });
-
 }
 
 function setupStatusIcons() {
@@ -203,17 +239,85 @@ function setupStatusIcons() {
     document.head.appendChild(style);
   }
   style.textContent = `
-    .stats-row .stat {
-      display: flex; 
-      align-items: center; 
-      justify-content: center; 
-      gap: 0.5rem;
+    /* 1. Определяем цветовые палитры для всех тем */
+    :root[data-theme="beige"] {
+      --cell-bg: #e0e0e0;
+      --cell-shadow-light: rgba(255, 255, 255, 0.7);
+      --cell-shadow-dark: #bebebe;
+      --cell-hover-brightness: 1.03;
     }
-    .status-icon { 
-      width: 1.6rem; 
-      height: 1.6rem; 
-      object-fit: contain; 
+    :root[data-theme="green"] {
+      --cell-bg: #ddefea;
+      --cell-shadow-light: #f1ffff;
+      --cell-shadow-dark: #c9d9d4;
+      --cell-hover-brightness: 1.02;
     }
+    :root[data-theme="purple"] {
+      --cell-bg: #e8e7f5;
+      --cell-shadow-light: #ffffff;
+      --cell-shadow-dark: #d2d1dd;
+      --cell-hover-brightness: 1.02;
+    }
+    :root[data-theme="pink"] {
+      --cell-bg: #f5e7e9;
+      --cell-shadow-light: #ffffff;
+      --cell-shadow-dark: #ddd1d3;
+      --cell-hover-brightness: 1.02;
+    }
+    :root[data-theme="blue"] {
+      --cell-bg: #e7eef5;
+      --cell-shadow-light: #ffffff;
+      --cell-shadow-dark: #d1d8df;
+      --cell-hover-brightness: 1.02;
+    }
+    :root[data-theme="dark"] {
+      --cell-bg: #2c3034;
+      --cell-shadow-light: #3a3f44;
+      --cell-shadow-dark: #1e2124;
+      --cell-hover-brightness: 1.1;
+    }
+
+    /* 2. Стили для закрытой ячейки (выпуклая кнопка) */
+    .cell:not(.is-open):not(.is-flagged):not(.is-hinted) {
+      background: var(--cell-bg);
+      border: 1px solid transparent;
+      box-shadow:
+        -4px -4px 8px var(--cell-shadow-light),
+        4px 4px 8px var(--cell-shadow-dark);
+      transition: all 150ms ease-out;
+    }
+
+    /* 3. Эффект при наведении курсора */
+    .cell:not(.is-open):not(.is-flagged):not(.is-hinted):not(:disabled):hover {
+      filter: brightness(var(--cell-hover-brightness));
+      box-shadow:
+        -5px -5px 10px var(--cell-shadow-light),
+        5px 5px 10px var(--cell-shadow-dark);
+    }
+
+    /* 4. Эффект "вдавливания" при нажатии */
+    .cell:not(.is-open):not(.is-flagged):not(.is-hinted):not(:disabled):active {
+      transform: scale(0.98);
+      box-shadow:
+        inset -3px -3px 7px var(--cell-shadow-light),
+        inset 3px 3px 7px var(--cell-shadow-dark);
+      filter: none;
+      transition-duration: 50ms;
+    }
+
+    /* 5. Обновленный стиль для подсветки соседей (Chording) */
+    .cell:not(.is-open):not(.is-flagged).is-neighbor-hovered {
+      transform: scale(0.96);
+      background: var(--cell-bg);
+      box-shadow:
+        inset -2px -2px 5px var(--cell-shadow-light),
+        inset 2px 2px 5px var(--cell-shadow-dark);
+      filter: brightness(0.95);
+      transition: all 50ms ease-out;
+    }
+
+    .stats-row .stat { display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
+    .status-icon { width: 1.6rem; height: 1.6rem; object-fit: contain; }
     .status-icon-bomb { width: 2rem; height: 2rem; }
   `;
 }

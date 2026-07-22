@@ -306,3 +306,47 @@
 [2026-07-21 14:02:04] Python: C:\Users\Офис\AppData\Local\Python\pythoncore-3.14-64\python.exe
 [2026-07-21 14:02:04] Args: -u C:\Users\Офис\Documents\TenderBomb\server.py 8080
 [2026-07-21 14:02:05] Server is healthy, pid=4032
+[2026-07-21 14:28:39] Stopping server pid=4032
+[2026-07-21 14:28:39] Tray script stopped
+[2026-07-22 09:48:45] Tray script started
+[2026-07-22 09:48:46] Starting server
+[2026-07-22 09:48:47] Python: C:\Users\Офис\AppData\Local\Python\pythoncore-3.14-64\python.exe
+[2026-07-22 09:48:47] Args: -u C:\Users\Офис\Documents\TenderBomb\server.py 8080
+[2026-07-22 09:48:49] Server is healthy, pid=8104
+[2026-07-22 09:50:18] Switching to console mode
+[2026-07-22 09:50:18] Stopping server pid=8104
+[2026-07-22 09:50:18] Tray script stopped
+[2026-07-22 09:50:33] Tray script started
+[2026-07-22 09:50:34] Starting server
+[2026-07-22 09:50:35] Python: C:\Users\Офис\AppData\Local\Python\pythoncore-3.14-64\python.exe
+[2026-07-22 09:50:35] Args: -u C:\Users\Офис\Documents\TenderBomb\server.py 8080
+[2026-07-22 09:50:35] Server is healthy, pid=6972
+[2026-07-22 10:01:58] Tray script started
+[2026-07-22 10:01:58] Stopping listener pid=6972
+[2026-07-22 10:01:59] Starting server
+[2026-07-22 10:01:59] Python: C:\Users\Офис\AppData\Local\Python\pythoncore-3.14-64\python.exe
+[2026-07-22 10:01:59] Args: -u C:\Users\Офис\Documents\TenderBomb\server.py 8080
+[2026-07-22 10:02:00] Server is healthy, pid=9980
+[2026-07-22 10:08:17] Stopping server pid=9980
+[2026-07-22 10:08:17] Tray script stopped
+[2026-07-22 10:09:35] Tray script started
+[2026-07-22 10:09:36] Starting server
+[2026-07-22 10:09:36] Python: C:\Users\Офис\AppData\Local\Python\pythoncore-3.14-64\python.exe
+[2026-07-22 10:09:36] Args: -u C:\Users\Офис\Documents\TenderBomb\server.py 8080
+[2026-07-22 10:09:37] Server is healthy, pid=10284
+[2026-07-22 10:18:42] Stopping server pid=10284
+[2026-07-22 10:18:42] Tray script stopped
+[2026-07-22 10:18:45] Tray script started
+[2026-07-22 10:18:46] Starting server
+[2026-07-22 10:18:46] Python: C:\Users\Офис\AppData\Local\Python\pythoncore-3.14-64\python.exe
+[2026-07-22 10:18:46] Args: -u C:\Users\Офис\Documents\TenderBomb\server.py 8080
+[2026-07-22 10:18:47] Server is healthy, pid=7016
+[2026-07-22 10:19:09] Stopping server pid=7016
+[2026-07-22 10:19:09] Tray script stopped
+[2026-07-22 10:22:24] Tray script started
+[2026-07-22 10:22:25] Starting server
+[2026-07-22 10:22:25] Python: C:\Users\Офис\AppData\Local\Python\pythoncore-3.14-64\python.exe
+[2026-07-22 10:22:25] Args: -u C:\Users\Офис\Documents\TenderBomb\server.py 8080
+[2026-07-22 10:22:26] Server is healthy, pid=2288
+[2026-07-22 10:31:06] Stopping server pid=2288
+[2026-07-22 10:31:06] Tray script stopped
