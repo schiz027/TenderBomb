@@ -350,3 +350,18 @@
 [2026-07-22 10:22:26] Server is healthy, pid=2288
 [2026-07-22 10:31:06] Stopping server pid=2288
 [2026-07-22 10:31:06] Tray script stopped
+[2026-07-22 11:36:15] Tray script started
+[2026-07-22 11:36:16] Starting server
+[2026-07-22 11:36:17] Python: C:\Users\Офис\AppData\Local\Python\pythoncore-3.14-64\python.exe
+[2026-07-22 11:36:17] Args: -u C:\Users\Офис\Documents\TenderBomb\server.py 8080
+[2026-07-22 11:36:18] Server is healthy, pid=7944
+[2026-07-22 11:53:38] Stopping server pid=7944
+[2026-07-22 11:53:38] Tray script stopped
+[2026-07-22 16:32:27] Tray script started
+[2026-07-22 16:32:28] Starting server
+[2026-07-22 16:32:29] Python: C:\Users\Офис\AppData\Local\Python\pythoncore-3.14-64\python.exe
+[2026-07-22 16:32:29] Args: -u C:\Users\Офис\Documents\TenderBomb\server.py 8080
+[2026-07-22 16:32:30] Server is healthy, pid=10688
+[2026-07-22 16:32:40] Switching to console mode
+[2026-07-22 16:32:40] Stopping server pid=10688
+[2026-07-22 16:32:40] Tray script stopped
