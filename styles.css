@@ -324,7 +324,7 @@ button {
 
 .topbar {
   display: grid;
-  grid-template-columns: minmax(250px, 320px) minmax(720px, 760px) minmax(260px, 340px);
+  grid-template-columns: minmax(250px, 320px) minmax(820px, 900px) minmax(260px, 340px);
   align-items: center;
   justify-content: center;
   gap: 18px;
@@ -398,13 +398,13 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
+  gap: 14px;
   width: 100%;
   min-width: 0;
 }
 
 .ban-disclaimer {
-  max-width: 500px;
+  max-width: 440px;
   margin: 0;
   color: var(--muted);
   font-size: 0.78rem;
@@ -419,12 +419,29 @@ h2 {
   white-space: nowrap;
 }
 
+.launcher-actions {
+  display: grid;
+  gap: 5px;
+  justify-items: end;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
 .launcher-buttons {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  flex: 0 0 auto;
+  gap: 7px;
+}
+
+.launcher-credit-hint {
+  margin: 0;
+  color: var(--green);
+  font-size: 0.72rem;
+  font-weight: 950;
+  line-height: 1;
+  text-align: right;
+  text-transform: uppercase;
 }
 
 .mini-game-button {
@@ -435,7 +452,7 @@ h2 {
   min-height: 42px;
   border: 1px solid var(--launcher-border);
   border-radius: 7px;
-  padding: 8px 14px;
+  padding: 8px 12px;
   background: var(--launcher-bg);
   color: var(--ink);
   box-shadow: 0 8px 24px var(--control-shadow);
@@ -444,13 +461,25 @@ h2 {
   white-space: nowrap;
 }
 
-.mini-game-button span:last-child {
+.mini-game-button .launcher-tag {
   border-radius: 999px;
   padding: 2px 7px;
   background: var(--blue);
   color: var(--on-accent);
   font-size: 0.72rem;
   text-transform: uppercase;
+}
+
+.casino-launch-button {
+  border-color: color-mix(in srgb, var(--red) 42%, var(--amber));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--red) 84%, var(--surface)), color-mix(in srgb, var(--amber) 88%, var(--surface)));
+  color: var(--on-accent);
+}
+
+.casino-launch-button .launcher-tag {
+  background: var(--on-accent);
+  color: var(--red-dark);
 }
 
 .playfield {
@@ -1178,6 +1207,7 @@ h2 {
   background: #151719;
 }
 
+.casino-screen,
 .checkers-screen,
 .tanks-screen {
   display: grid;
@@ -1189,6 +1219,7 @@ h2 {
   width: 100%;
 }
 
+.casino-screen,
 .checkers-screen {
   grid-template-columns: minmax(250px, 320px) minmax(720px, 760px) minmax(260px, 340px);
 }
@@ -1197,11 +1228,14 @@ h2 {
   grid-template-columns: minmax(250px, 320px) minmax(720px, 760px) minmax(260px, 340px);
 }
 
+.casino-screen[hidden],
 .checkers-screen[hidden],
 .tanks-screen[hidden] {
   display: none;
 }
 
+.casino-header,
+.casino-header-actions,
 .checkers-header,
 .checkers-header-actions,
 .tanks-header,
@@ -1212,22 +1246,27 @@ h2 {
   gap: 12px;
 }
 
+.casino-header,
 .checkers-header,
 .tanks-header {
   width: min(var(--control-width), 100%);
   margin-inline: auto;
 }
 
+.casino-header-actions,
 .checkers-header-actions,
 .tanks-header-actions {
   flex: 0 0 auto;
 }
 
+.casino-header h2,
 .checkers-header h2,
 .tanks-header h2 {
   font-size: 1.35rem;
 }
 
+.casino-panel,
+.casino-board-area,
 .checkers-panel,
 .checkers-board-area,
 .tanks-panel,
@@ -1239,6 +1278,7 @@ h2 {
   box-shadow: var(--shadow);
 }
 
+.casino-panel,
 .checkers-panel,
 .tanks-panel {
   display: flex;
@@ -1247,6 +1287,7 @@ h2 {
   padding: 16px;
 }
 
+.casino-panel h3,
 .checkers-panel h3,
 .tanks-panel h3 {
   margin: 0;
@@ -1362,6 +1403,7 @@ h2 {
   white-space: nowrap;
 }
 
+.casino-board-area,
 .checkers-board-area,
 .tanks-board-area {
   --control-width: 704px;
@@ -1965,6 +2007,280 @@ button.checker-cell {
   flex: 1;
 }
 
+.casino-lobby {
+  min-width: 0;
+}
+
+.casino-credit-card {
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--amber) 18%, transparent), transparent 62%),
+    var(--surface);
+}
+
+.casino-credit-card span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.casino-credit-card strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 950;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.casino-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: min(var(--control-width), 100%);
+  margin-inline: auto;
+}
+
+.casino-stat {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  justify-content: center;
+  column-gap: 8px;
+  width: auto;
+  min-height: 58px;
+  padding: 8px 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.42), transparent),
+    var(--surface-subtle);
+}
+
+.casino-stat-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--amber) 44%, var(--line));
+  border-radius: 999px;
+  background: var(--amber-soft);
+  color: var(--amber);
+  box-shadow: inset 0 -3px 0 rgba(32, 34, 38, 0.12);
+  font-size: 1rem;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.casino-stat-copy {
+  display: grid;
+  min-width: 0;
+  justify-items: center;
+}
+
+.casino-stat .stat-value {
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.casino-stat .stat-label {
+  margin-top: 3px;
+  font-size: 0.66rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.casino-game-switch {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  width: min(var(--control-width), 100%);
+  margin-inline: auto;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+}
+
+.casino-slot-shell {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px;
+  width: min(var(--control-width), 100%);
+  flex: 1;
+  min-height: 0;
+  margin-inline: auto;
+}
+
+.casino-slot-machine {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 16px;
+  min-height: 360px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 20px;
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--amber) 28%, transparent), transparent 36%),
+    linear-gradient(180deg, color-mix(in srgb, var(--ink) 8%, transparent), transparent),
+    var(--board-shell);
+}
+
+.casino-reels {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(94px, 1fr));
+  gap: 12px;
+  width: min(520px, 100%);
+}
+
+.casino-reel {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.74), transparent 42%),
+    var(--surface);
+  box-shadow:
+    inset 0 -7px 0 rgba(32, 34, 38, 0.11),
+    0 10px 24px var(--control-shadow);
+  font-size: clamp(3rem, 7vw, 5.4rem);
+  line-height: 1;
+  user-select: none;
+}
+
+.casino-reels.is-spinning .casino-reel {
+  animation: casinoPulse 130ms linear infinite alternate;
+}
+
+@keyframes casinoPulse {
+  from {
+    transform: translateY(-2px);
+    filter: brightness(1.05);
+  }
+  to {
+    transform: translateY(2px);
+    filter: brightness(0.96);
+  }
+}
+
+.casino-spin-result {
+  min-height: 24px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 850;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.casino-bet-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  gap: 10px;
+  width: 100%;
+}
+
+.casino-bet-controls {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.casino-bet-buttons {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.casino-bet-buttons .tool-button {
+  min-height: 52px;
+  font-variant-numeric: tabular-nums;
+}
+
+.casino-custom-bet {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr);
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.casino-custom-bet input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 8px 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+}
+
+.casino-custom-bet input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.casino-spin-button {
+  min-height: 52px;
+}
+
+.casino-spin-button:disabled,
+.casino-bet-buttons .tool-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.casino-leaderboard {
+  min-height: 84px;
+  max-height: 330px;
+  overflow: auto;
+}
+
+.casino-log-panel {
+  min-height: 0;
+}
+
+.casino-log {
+  flex: 1;
+}
+
+.casino-log li strong {
+  color: var(--ink);
+}
+
+.casino-log-meta {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.casino-back-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 42px;
+  white-space: nowrap;
+}
+
 .result-modal {
   position: fixed;
   inset: 0;
@@ -1995,6 +2311,15 @@ button.checker-cell {
 .result-dialog p:not(.eyebrow) {
   color: var(--muted);
   line-height: 1.5;
+}
+
+.result-credit-text {
+  border: 1px solid color-mix(in srgb, var(--green) 36%, var(--line));
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--green-soft);
+  color: var(--green) !important;
+  font-weight: 900;
 }
 
 .result-actions {
@@ -2029,12 +2354,14 @@ button.checker-cell {
   }
 
   .playfield,
+  .casino-screen,
   .checkers-screen,
   .tanks-screen {
     flex: none;
   }
 
   .playfield,
+  .casino-screen,
   .checkers-screen,
   .tanks-screen {
     grid-template-columns: minmax(220px, 300px) minmax(0, 760px);
@@ -2042,18 +2369,21 @@ button.checker-cell {
   }
 
   .side-surface,
+  .casino-log-panel,
   .checkers-log-panel,
   .tanks-log-panel {
     grid-column: 1 / -1;
   }
 
   .multiplayer-panel,
+  .casino-lobby,
   .checkers-lobby,
   .tanks-lobby {
     min-height: 420px;
   }
 
   .event-log,
+  .casino-log,
   .checkers-log {
     min-height: 0;
     max-height: 280px;
@@ -2067,6 +2397,7 @@ button.checker-cell {
 
 @media (max-width: 900px) {
   .game-surface,
+  .casino-board-area,
   .checkers-board-area,
   .tanks-board-area {
     --control-width: 100%;
@@ -2077,6 +2408,8 @@ button.checker-cell {
   .action-row,
   .case-strip,
   .progress-track,
+  .casino-stats-row,
+  .casino-game-switch,
   .tanks-stats-row,
   .tanks-target-row {
     width: 100%;
@@ -2114,6 +2447,10 @@ button.checker-cell {
     flex-wrap: wrap;
     justify-content: flex-start;
   }
+
+  .launcher-actions {
+    justify-items: start;
+  }
 }
 
 @media (max-width: 720px) {
@@ -2135,6 +2472,15 @@ button.checker-cell {
     width: 100%;
     flex-wrap: wrap;
     justify-content: flex-start;
+  }
+
+  .launcher-actions {
+    width: 100%;
+    justify-items: start;
+  }
+
+  .launcher-credit-hint {
+    text-align: left;
   }
 
   .ban-disclaimer {
@@ -2162,11 +2508,14 @@ button.checker-cell {
   }
 
   .playfield,
+  .casino-screen,
   .checkers-screen,
   .tanks-screen {
     grid-template-columns: 1fr;
   }
 
+  .casino-header,
+  .casino-header-actions,
   .checkers-header,
   .checkers-header-actions,
   .tanks-header,
@@ -2174,11 +2523,13 @@ button.checker-cell {
     align-items: stretch;
   }
 
+  .casino-header,
   .checkers-header,
   .tanks-header {
     flex-direction: column;
   }
 
+  .casino-log-panel,
   .checkers-log-panel,
   .tanks-log-panel {
     grid-column: auto;
@@ -2195,7 +2546,18 @@ button.checker-cell {
   .mode-switch,
   .stats-row,
   .action-row,
+  .casino-stats-row,
+  .casino-game-switch,
   .tanks-stats-row {
+    grid-template-columns: 1fr;
+  }
+
+  .casino-bet-panel,
+  .casino-bet-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .casino-custom-bet {
     grid-template-columns: 1fr;
   }
 
@@ -2208,8 +2570,14 @@ button.checker-cell {
   }
 
   .board-shell,
+  .casino-slot-machine,
   .tanks-board-shell {
     padding: 6px;
+  }
+
+  .casino-reels {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
   }
 
   .board {

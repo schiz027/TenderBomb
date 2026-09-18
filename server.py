@@ -3,6 +3,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 import json
 import os
+import secrets
 import socket
 import subprocess
 import sys
@@ -16,12 +17,36 @@ MODE_RULES = {
     "state": {"active": 128, "mines": 22, "min_win_seconds": 18},
     "registry": {"active": 256, "mines": 48, "min_win_seconds": 45},
 }
+SAPPER_CREDIT_REWARDS = {
+    "express": 500,
+    "state": 1000,
+    "registry": 2000,
+}
 MODES = set(MODE_RULES)
 TANKS_MODE = "tanks"
-RECORD_MODES = MODES | {TANKS_MODE}
+CASINO_MODE = "casino"
+RECORD_MODES = MODES | {TANKS_MODE, CASINO_MODE}
+TANKS_CREDIT_DIVISOR = 50
+TANKS_CREDIT_CAP = 1200
+CHECKERS_CREDIT_REWARD = 1000
+CHECKERS_CREDIT_REASONS = {"no_pieces", "no_moves"}
+CASINO_STARTING_CREDITS = 1000
+CASINO_PRESET_BETS = {10, 25, 50, 100, 250}
+CASINO_MIN_BET = 1
+CASINO_MAX_BET = 10_000
+CASINO_HISTORY_LIMIT = 12
+CASINO_SYMBOLS = [
+    {"symbol": "🍒", "weight": 28, "two": 1, "three": 5},
+    {"symbol": "🍋", "weight": 24, "two": 1, "three": 6},
+    {"symbol": "🍇", "weight": 20, "two": 2, "three": 8},
+    {"symbol": "🔔", "weight": 14, "two": 2, "three": 12},
+    {"symbol": "⭐", "weight": 9, "two": 3, "three": 18},
+    {"symbol": "💎", "weight": 5, "two": 5, "three": 35},
+]
 LOCK = threading.Lock()
 RECORDS_PATH = Path(__file__).resolve().with_name("leaderboard-records.json")
 LEADERBOARD_CACHE_PATH = Path(__file__).resolve().with_name("leaderboard-cache.js")
+SERVER_NOTICE_PATH = Path(__file__).resolve().with_name(".server-notice.json")
 STATE = {"records": {mode: {} for mode in RECORD_MODES}, "profiles": {}}
 SERVER_CONTROL = {"server": None, "restart": False, "stealth": False, "notice": "", "notice_until": 0}
 TANKS_GOD_OWNERS = set()
@@ -86,6 +111,36 @@ def set_server_notice(message, ttl_ms=15_000):
     SERVER_CONTROL["notice_until"] = now_ms() + ttl_ms if SERVER_CONTROL["notice"] else 0
 
 
+def write_next_start_notice(message, ttl_ms=120_000):
+    message = str(message or "").strip()
+    if not message:
+        return
+    payload = {"message": message, "notice_until": now_ms() + ttl_ms}
+    try:
+        SERVER_NOTICE_PATH.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def load_next_start_notice():
+    if not SERVER_NOTICE_PATH.exists():
+        return
+    try:
+        payload = json.loads(SERVER_NOTICE_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        payload = {}
+    try:
+        SERVER_NOTICE_PATH.unlink()
+    except OSError:
+        pass
+
+    message = str(payload.get("message") or "").strip() if isinstance(payload, dict) else ""
+    notice_until = safe_int(payload.get("notice_until"), 0) if isinstance(payload, dict) else 0
+    if message and notice_until > now_ms():
+        SERVER_CONTROL["notice"] = message
+        SERVER_CONTROL["notice_until"] = notice_until
+
+
 def player_name_owner(player):
     player_key = clean_player(player).casefold()
     if not player_key:
@@ -121,11 +176,22 @@ def tanks_record_rank(record):
     )
 
 
+def casino_record_rank(record):
+    return (
+        safe_int(record.get("credits"), 0),
+        safe_int(record.get("wins"), 0),
+        safe_int(record.get("spins"), 0),
+        -safe_int(record.get("updated_at"), 999999999999),
+    )
+
+
 def is_better_record(mode, candidate, existing):
     if existing is None:
         return True
     if mode == TANKS_MODE:
         return tanks_record_rank(candidate) > tanks_record_rank(existing)
+    if mode == CASINO_MODE:
+        return casino_record_rank(candidate) > casino_record_rank(existing)
     candidate_seconds = safe_int(candidate.get("seconds"), 999999)
     existing_seconds = safe_int(existing.get("seconds"), 999999)
     if candidate_seconds != existing_seconds:
@@ -355,6 +421,309 @@ def public_tanks_state(client_ip=""):
     })
 
 
+def clean_casino_history(items):
+    if not isinstance(items, list):
+        return []
+    history = []
+    for item in items[:CASINO_HISTORY_LIMIT]:
+        if not isinstance(item, dict):
+            continue
+        symbols = item.get("symbols")
+        if not isinstance(symbols, list):
+            symbols = []
+        history.append({
+            "symbols": [str(symbol)[:4] for symbol in symbols[:3]],
+            "bet": max(0, safe_int(item.get("bet"), 0)),
+            "payout": max(0, safe_int(item.get("payout"), 0)),
+            "net": safe_int(item.get("net"), 0),
+            "credits": max(0, safe_int(item.get("credits"), 0)),
+            "created_at": max(0, safe_int(item.get("created_at"), 0)),
+        })
+    return history
+
+
+def ensure_casino_record(client_ip, player):
+    owner = record_owner_key(client_ip)
+    player = clean_player(player or STATE["profiles"].get(owner))
+    if not owner or not player:
+        return None, False
+
+    casino_records = STATE["records"].setdefault(CASINO_MODE, {})
+    current = now_ms()
+    record = casino_records.get(owner)
+    if not isinstance(record, dict):
+        record = {
+            "player": player,
+            "client_ip": owner,
+            "mode": CASINO_MODE,
+            "credits": CASINO_STARTING_CREDITS,
+            "spins": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "wagered": 0,
+            "paid": 0,
+            "earned": 0,
+            "spent": 0,
+            "history": [],
+            "created_at": current,
+            "updated_at": current,
+        }
+        casino_records[owner] = record
+        return record, True
+
+    changed = False
+    defaults = {
+        "mode": CASINO_MODE,
+        "credits": CASINO_STARTING_CREDITS,
+        "spins": 0,
+        "wins": 0,
+        "losses": 0,
+        "pushes": 0,
+        "wagered": 0,
+        "paid": 0,
+        "earned": 0,
+        "spent": 0,
+        "history": [],
+        "created_at": current,
+        "updated_at": current,
+    }
+    for key, value in defaults.items():
+        if key not in record:
+            record[key] = value
+            changed = True
+    if record.get("player") != player:
+        record["player"] = player
+        changed = True
+    if record.get("client_ip") != owner:
+        record["client_ip"] = owner
+        changed = True
+    cleaned_history = clean_casino_history(record.get("history"))
+    if record.get("history") != cleaned_history:
+        record["history"] = cleaned_history
+        changed = True
+    for key in ("credits", "spins", "wins", "losses", "pushes", "wagered", "paid", "earned", "spent"):
+        normalized = max(0, safe_int(record.get(key), 0))
+        if record.get(key) != normalized:
+            record[key] = normalized
+            changed = True
+    return record, changed
+
+
+def add_casino_credits(client_ip, player, amount, source):
+    amount = max(0, safe_int(amount, 0))
+    if amount <= 0:
+        return None, False
+
+    record, dirty = ensure_casino_record(client_ip, player)
+    if not record:
+        return None, dirty
+
+    current = now_ms()
+    previous = max(0, safe_int(record.get("credits"), 0))
+    record["credits"] = previous + amount
+    record["earned"] = max(0, safe_int(record.get("earned"), 0)) + amount
+    record["updated_at"] = current
+    record["last_credit_award"] = {
+        "source": str(source or "")[:48],
+        "amount": amount,
+        "created_at": current,
+    }
+    return {
+        "amount": amount,
+        "credits": record["credits"],
+        "previous_credits": previous,
+        "source": str(source or "")[:48],
+    }, True
+
+
+def casino_credit_balance(client_ip):
+    owner = record_owner_key(client_ip)
+    record = STATE["records"].get(CASINO_MODE, {}).get(owner)
+    if isinstance(record, dict):
+        return max(0, safe_int(record.get("credits"), CASINO_STARTING_CREDITS))
+    return CASINO_STARTING_CREDITS
+
+
+def attach_credit_summary(result, client_ip, source):
+    if not isinstance(result, dict) or result.get("credit_reward"):
+        return result
+    credits = casino_credit_balance(client_ip)
+    result["credit_reward"] = {
+        "amount": 0,
+        "credits": credits,
+        "previous_credits": credits,
+        "source": str(source or "")[:48],
+    }
+    return result
+
+
+def public_casino_scores():
+    scores = sorted(
+        (
+            item
+            for item in STATE["records"].get(CASINO_MODE, {}).values()
+            if is_public_owner(item.get("client_ip")) and safe_int(item.get("credits"), -1) >= 0
+        ),
+        key=lambda item: (
+            -safe_int(item.get("credits"), 0),
+            -safe_int(item.get("wins"), 0),
+            safe_int(item.get("spins"), 999999),
+            safe_int(item.get("updated_at"), 0),
+        ),
+    )
+    return [public_record(item) for item in scores[:50]]
+
+
+def public_casino_state(client_ip="", create=True):
+    owner = record_owner_key(client_ip)
+    player = STATE["profiles"].get(owner, "")
+    record = None
+    dirty = False
+    if owner and player:
+        if create:
+            record, dirty = ensure_casino_record(owner, player)
+        else:
+            record = STATE["records"].get(CASINO_MODE, {}).get(owner)
+    if dirty:
+        save_records()
+
+    return with_server_notice({
+        "ok": True,
+        "ip": client_ip,
+        "player": player,
+        "credits": safe_int(record.get("credits"), CASINO_STARTING_CREDITS) if record else None,
+        "spins": safe_int(record.get("spins"), 0) if record else 0,
+        "wins": safe_int(record.get("wins"), 0) if record else 0,
+        "losses": safe_int(record.get("losses"), 0) if record else 0,
+        "pushes": safe_int(record.get("pushes"), 0) if record else 0,
+        "earned": safe_int(record.get("earned"), 0) if record else 0,
+        "spent": safe_int(record.get("spent"), 0) if record else 0,
+        "history": clean_casino_history(record.get("history")) if record else [],
+        "leaderboard": public_casino_scores(),
+        "bets": sorted(CASINO_PRESET_BETS),
+        "min_bet": CASINO_MIN_BET,
+        "max_bet": CASINO_MAX_BET,
+        "starting_credits": CASINO_STARTING_CREDITS,
+        "server_time": now_ms(),
+    })
+
+
+def weighted_casino_symbol():
+    total = sum(max(0, safe_int(item.get("weight"), 0)) for item in CASINO_SYMBOLS)
+    ticket = secrets.randbelow(max(total, 1))
+    cursor = 0
+    for item in CASINO_SYMBOLS:
+        cursor += max(0, safe_int(item.get("weight"), 0))
+        if ticket < cursor:
+            return item["symbol"]
+    return CASINO_SYMBOLS[0]["symbol"]
+
+
+def casino_symbol_rule(symbol):
+    for item in CASINO_SYMBOLS:
+        if item["symbol"] == symbol:
+            return item
+    return CASINO_SYMBOLS[0]
+
+
+def evaluate_casino_spin(symbols, bet):
+    counts = {}
+    for symbol in symbols:
+        counts[symbol] = counts.get(symbol, 0) + 1
+    symbol, count = max(counts.items(), key=lambda item: item[1])
+    rule = casino_symbol_rule(symbol)
+    if count >= 3:
+        payout = bet * safe_int(rule.get("three"), 0)
+    elif count == 2:
+        payout = bet * safe_int(rule.get("two"), 0)
+    else:
+        payout = 0
+    return payout, payout - bet
+
+
+def casino_state_with_result(client_ip, result):
+    state = public_casino_state(client_ip, create=False)
+    state["result"] = result
+    return state
+
+
+def register_casino_spin(payload, client_ip):
+    player = clean_player(payload.get("player") or STATE["profiles"].get(client_ip))
+    if not player:
+        return casino_state_with_result(client_ip, {"ok": False, "reason": "invalid_player", "error": "invalid_player"})
+    if is_player_name_taken(client_ip, player):
+        return casino_state_with_result(client_ip, {"ok": False, "reason": "name_taken", "error": "name_taken"})
+
+    bet = safe_int(payload.get("bet"), 0)
+    if bet < CASINO_MIN_BET or bet > CASINO_MAX_BET:
+        return casino_state_with_result(client_ip, {"ok": False, "reason": "invalid_bet", "error": "invalid_bet"})
+
+    dirty = set_profile(client_ip, player)
+    record, record_dirty = ensure_casino_record(client_ip, player)
+    dirty = dirty or record_dirty
+    if not record:
+        return casino_state_with_result(client_ip, {"ok": False, "reason": "invalid_player", "error": "invalid_player"})
+
+    credits = max(0, safe_int(record.get("credits"), 0))
+    if credits < bet:
+        if dirty:
+            save_records()
+        return casino_state_with_result(
+            client_ip,
+            {
+                "ok": False,
+                "reason": "not_enough_credits",
+                "error": "not_enough_credits",
+                "credits": credits,
+                "bet": bet,
+            },
+        )
+
+    symbols = [weighted_casino_symbol() for _ in range(3)]
+    payout, net = evaluate_casino_spin(symbols, bet)
+    current = now_ms()
+    credits = max(0, credits - bet + payout)
+
+    record["credits"] = credits
+    record["spins"] = max(0, safe_int(record.get("spins"), 0)) + 1
+    record["wagered"] = max(0, safe_int(record.get("wagered"), 0)) + bet
+    record["paid"] = max(0, safe_int(record.get("paid"), 0)) + payout
+    record["updated_at"] = current
+    if net > 0:
+        record["wins"] = max(0, safe_int(record.get("wins"), 0)) + 1
+    elif net < 0:
+        record["losses"] = max(0, safe_int(record.get("losses"), 0)) + 1
+    else:
+        record["pushes"] = max(0, safe_int(record.get("pushes"), 0)) + 1
+    record["history"] = [
+        {
+            "symbols": symbols,
+            "bet": bet,
+            "payout": payout,
+            "net": net,
+            "credits": credits,
+            "created_at": current,
+        },
+        *clean_casino_history(record.get("history")),
+    ][:CASINO_HISTORY_LIMIT]
+
+    save_records()
+
+    return casino_state_with_result(
+        client_ip,
+        {
+            "ok": True,
+            "reason": "spin",
+            "symbols": symbols,
+            "bet": bet,
+            "payout": payout,
+            "net": net,
+            "credits": credits,
+        },
+    )
+
+
 def public_profile(client_ip):
     return with_server_notice({
         "ok": True,
@@ -452,7 +821,7 @@ def register_result(payload, client_ip):
             and clean_player(round_data.get("player")).casefold() == player.casefold()
         ):
             round_data["used"] = True
-        return result_response(mode, {"recorded": False, "reason": status})
+        return result_response(mode, attach_credit_summary({"recorded": False, "reason": status}, client_ip, f"sapper:{mode}"))
 
     if (
         not round_data
@@ -461,7 +830,10 @@ def register_result(payload, client_ip):
         or round_data.get("mode") != mode
         or clean_player(round_data.get("player")).casefold() != player.casefold()
     ):
-        return result_response(mode, {"recorded": False, "reason": "invalid_round", "error": "invalid_round"})
+        return result_response(
+            mode,
+            attach_credit_summary({"recorded": False, "reason": "invalid_round", "error": "invalid_round"}, client_ip, f"sapper:{mode}"),
+        )
 
     current = now_ms()
     elapsed_ms = max(0, current - int(round_data.get("started_at", current)))
@@ -472,27 +844,35 @@ def register_result(payload, client_ip):
     if flags > rules["mines"] or revealed > rules["active"] or flags + revealed != rules["active"]:
         return result_response(
             mode,
-            {
-                "recorded": False,
-                "reason": "stat_mismatch",
-                "error": "stat_mismatch",
-                "flags": flags,
-                "revealed": revealed,
-                "expected_total": rules["active"],
-            },
+            attach_credit_summary(
+                {
+                    "recorded": False,
+                    "reason": "stat_mismatch",
+                    "error": "stat_mismatch",
+                    "flags": flags,
+                    "revealed": revealed,
+                    "expected_total": rules["active"],
+                },
+                client_ip,
+                f"sapper:{mode}",
+            ),
         )
 
     min_win_seconds = rules["min_win_seconds"]
     if seconds < min_win_seconds:
         return result_response(
             mode,
-            {
-                "recorded": False,
-                "reason": "too_fast",
-                "error": "too_fast",
-                "server_seconds": seconds,
-                "min_seconds": min_win_seconds,
-            },
+            attach_credit_summary(
+                {
+                    "recorded": False,
+                    "reason": "too_fast",
+                    "error": "too_fast",
+                    "server_seconds": seconds,
+                    "min_seconds": min_win_seconds,
+                },
+                client_ip,
+                f"sapper:{mode}",
+            ),
         )
 
     dirty = set_profile(client_ip, player)
@@ -553,6 +933,12 @@ def register_result(payload, client_ip):
                 existing["player"] = player
                 existing["client_ip"] = owner_key
                 dirty = True
+
+        credit_reward, reward_dirty = add_casino_credits(client_ip, player, SAPPER_CREDIT_REWARDS.get(mode, 0), f"sapper:{mode}")
+        if credit_reward:
+            result["credit_reward"] = credit_reward
+        if reward_dirty:
+            dirty = True
 
     if dirty:
         save_records()
@@ -638,6 +1024,17 @@ def register_tanks_result(payload, client_ip):
             existing["player"] = player
             existing["client_ip"] = owner_key
             dirty = True
+
+    credit_reward, reward_dirty = add_casino_credits(
+        client_ip,
+        player,
+        min(TANKS_CREDIT_CAP, score // TANKS_CREDIT_DIVISOR),
+        "tanks",
+    )
+    if credit_reward:
+        result["credit_reward"] = credit_reward
+    if reward_dirty:
+        dirty = True
 
     if dirty:
         save_records()
@@ -754,16 +1151,21 @@ def remove_checkers_queue_entry(client_id):
     return len(CHECKERS_STATE["queue"]) != before
 
 
-def touch_checkers_name(client_id, player):
+def touch_checkers_name(client_id, player, client_ip=""):
+    owner = record_owner_key(client_ip)
     game = find_checkers_game(client_id)
     if game:
         color = find_checkers_color(game, client_id)
         if color:
             game["players"][color]["name"] = player
+            if owner:
+                game["players"][color]["client_ip"] = owner
             game["updated_at"] = now_ms()
     entry = find_checkers_queue_entry(client_id)
     if entry:
         entry["player"] = player
+        if owner:
+            entry["client_ip"] = owner
         entry["last_seen"] = now_ms()
 
 
@@ -773,8 +1175,16 @@ def create_checkers_game(waiting, joining):
         "id": game_id,
         "status": "playing",
         "players": {
-            "white": {"client_id": waiting["client_id"], "name": waiting["player"]},
-            "black": {"client_id": joining["client_id"], "name": joining["player"]},
+            "white": {
+                "client_id": waiting["client_id"],
+                "name": waiting["player"],
+                "client_ip": record_owner_key(waiting.get("client_ip")),
+            },
+            "black": {
+                "client_id": joining["client_id"],
+                "name": joining["player"],
+                "client_ip": record_owner_key(joining.get("client_ip")),
+            },
         },
         "board": create_checkers_board(),
         "turn": "white",
@@ -820,12 +1230,12 @@ def public_checkers_game(game, client_id):
     }
 
 
-def public_checkers_state(client_id, player=None):
+def public_checkers_state(client_id, player=None, client_ip=""):
     client_id = clean_client_id(client_id)
     if player is not None:
         cleaned_player = clean_player(player)
         if cleaned_player:
-            touch_checkers_name(client_id, cleaned_player)
+            touch_checkers_name(client_id, cleaned_player, client_ip)
     cleanup_checkers_locked()
 
     game = find_checkers_game(client_id)
@@ -849,6 +1259,7 @@ def join_checkers(payload, client_ip=""):
     cleanup_checkers_locked()
     client_id = clean_client_id(payload.get("client_id"))
     player = clean_player(payload.get("player"))
+    owner = record_owner_key(client_ip)
     if not player:
         return {"ok": False, "error": "invalid_player", "status": "idle", "queue_size": len(CHECKERS_STATE["queue"])}
     if client_ip and is_player_name_taken(client_ip, player):
@@ -857,19 +1268,18 @@ def join_checkers(payload, client_ip=""):
         save_records()
     existing_game = find_checkers_game(client_id)
     if existing_game:
-        touch_checkers_name(client_id, player)
-        return public_checkers_state(client_id)
+        touch_checkers_name(client_id, player, client_ip)
+        return public_checkers_state(client_id, client_ip=client_ip)
 
     existing_entry = find_checkers_queue_entry(client_id)
     if existing_entry:
-        existing_entry["player"] = player
-        existing_entry["last_seen"] = now_ms()
-        return public_checkers_state(client_id)
+        touch_checkers_name(client_id, player, client_ip)
+        return public_checkers_state(client_id, client_ip=client_ip)
 
     while CHECKERS_STATE["queue"]:
         waiting = CHECKERS_STATE["queue"].pop(0)
         if waiting["client_id"] != client_id:
-            game = create_checkers_game(waiting, {"client_id": client_id, "player": player})
+            game = create_checkers_game(waiting, {"client_id": client_id, "player": player, "client_ip": owner})
             return {
                 "ok": True,
                 "status": "playing",
@@ -880,11 +1290,12 @@ def join_checkers(payload, client_ip=""):
         {
             "client_id": client_id,
             "player": player,
+            "client_ip": owner,
             "joined_at": now_ms(),
             "last_seen": now_ms(),
         }
     )
-    return public_checkers_state(client_id)
+    return public_checkers_state(client_id, client_ip=client_ip)
 
 
 def leave_checkers(payload):
@@ -922,6 +1333,34 @@ def checkers_capture_moves_for_piece(board, index):
     col = index % 8
     opponent = checkers_opponent(piece["color"])
     moves = []
+    if piece.get("king"):
+        for row_delta, col_delta in checkers_capture_dirs(piece):
+            captured_index = None
+            step = 1
+            while True:
+                scan_row = row + row_delta * step
+                scan_col = col + col_delta * step
+                if not checkers_playable(scan_row, scan_col):
+                    break
+
+                scan_index = scan_row * 8 + scan_col
+                scan_piece = board[scan_index]
+                if captured_index is None:
+                    if scan_piece is None:
+                        step += 1
+                        continue
+                    if scan_piece["color"] == piece["color"]:
+                        break
+                    captured_index = scan_index
+                    step += 1
+                    continue
+
+                if scan_piece is not None:
+                    break
+                moves.append({"from": index, "to": scan_index, "capture": captured_index})
+                step += 1
+        return moves
+
     for row_delta, col_delta in checkers_capture_dirs(piece):
         mid_row = row + row_delta
         mid_col = col + col_delta
@@ -944,6 +1383,21 @@ def checkers_simple_moves_for_piece(board, index):
     row = index // 8
     col = index % 8
     moves = []
+    if piece.get("king"):
+        for row_delta, col_delta in checkers_simple_dirs(piece):
+            step = 1
+            while True:
+                to_row = row + row_delta * step
+                to_col = col + col_delta * step
+                if not checkers_playable(to_row, to_col):
+                    break
+                to_index = to_row * 8 + to_col
+                if board[to_index] is not None:
+                    break
+                moves.append({"from": index, "to": to_index, "capture": None})
+                step += 1
+        return moves
+
     for row_delta, col_delta in checkers_simple_dirs(piece):
         to_row = row + row_delta
         to_col = col + col_delta
@@ -991,7 +1445,27 @@ def finish_checkers_game(game, winner, reason):
     game["reason"] = reason
     game["must_continue_from"] = None
     game["updated_at"] = now_ms()
+    award_checkers_credits(game, winner, reason)
     checkers_log(game, "good", f"Победа: {game['players'][winner]['name']}.")
+
+
+def award_checkers_credits(game, winner, reason):
+    if reason not in CHECKERS_CREDIT_REASONS or game.get("credit_awarded"):
+        return None
+    player = game.get("players", {}).get(winner, {})
+    client_ip = record_owner_key(player.get("client_ip"))
+    name = clean_player(player.get("name"))
+    if not client_ip or not name:
+        return None
+
+    reward, dirty = add_casino_credits(client_ip, name, CHECKERS_CREDIT_REWARD, "checkers")
+    if not reward:
+        return None
+    game["credit_awarded"] = reward
+    checkers_log(game, "good", f"Кредиты: +{reward['amount']} за победу в шашках.")
+    if dirty:
+        save_records()
+    return reward
 
 
 def resolve_checkers_winner(game):
@@ -1129,6 +1603,10 @@ class TenderBombHandler(SimpleHTTPRequestHandler):
             with LOCK:
                 self.send_json(public_tanks_state(self.client_address[0]))
             return
+        if path == "/api/casino/state":
+            with LOCK:
+                self.send_json(public_casino_state(self.client_address[0]))
+            return
         if path == "/api/profile":
             with LOCK:
                 self.send_json(public_profile(self.client_address[0]))
@@ -1138,7 +1616,7 @@ class TenderBombHandler(SimpleHTTPRequestHandler):
             client_id = (query.get("client_id") or [""])[0]
             player = (query.get("player") or [None])[0]
             with LOCK:
-                self.send_json(public_checkers_state(client_id, player))
+                self.send_json(public_checkers_state(client_id, player, self.client_address[0]))
             return
         super().do_GET()
 
@@ -1154,6 +1632,11 @@ class TenderBombHandler(SimpleHTTPRequestHandler):
         if path == "/api/tanks/result":
             with LOCK:
                 self.send_json(register_tanks_result(payload, self.client_address[0]))
+            return
+
+        if path == "/api/casino/spin":
+            with LOCK:
+                self.send_json(register_casino_spin(payload, self.client_address[0]))
             return
 
         if path == "/api/profile":
@@ -1257,13 +1740,18 @@ def handle_console_command(line):
         return
     lowered = command.casefold()
     if lowered in {"exit", "quit"}:
-        print("Server will stop.")
-        request_server_stop(False)
+        message = "Сервер был отключен."
+        with LOCK:
+            set_server_notice(message, 10_000)
+        print(message)
+        threading.Timer(6.0, lambda: request_server_stop(False)).start()
         return
     if lowered == "restart":
-        message = "Сервер будет перезапущен, обновите страницу"
+        message = "Сервер перезапускается. После рестарта обновите страницу с помощью F5."
+        next_message = "Сервер был перезапущен, обновите страницу с помощью F5."
         with LOCK:
             set_server_notice(message)
+            write_next_start_notice(next_message)
         print(message)
         threading.Timer(1.5, lambda: request_server_stop(True)).start()
         return
@@ -1316,6 +1804,7 @@ def main():
             save_records()
         else:
             save_leaderboard_cache()
+        load_next_start_notice()
 
     print()
     print("TenderBomb records server")

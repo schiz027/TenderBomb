@@ -15,6 +15,7 @@
   const POLL_MS = 5000;
   const NAME_REQUIRED_MESSAGE = "Введите никнейм и сохраните!";
   const NAME_TAKEN_MESSAGE = "Этот ник уже занят другим игроком.";
+  const SERVER_OFFLINE_MESSAGE = "Сервер был отключен.";
 
   const DIRS = {
     up: { x: 0, y: -1 },
@@ -151,6 +152,9 @@
     window.addEventListener("tenderBombOpenCheckers", () => {
       if (tanksState.isOpen) closeTanks({ showTender: false, submit: false });
     });
+    window.addEventListener("tenderBombOpenCasino", () => {
+      if (tanksState.isOpen) closeTanks({ showTender: false, submit: false });
+    });
   }
 
   async function openTanks() {
@@ -224,7 +228,9 @@
       renderTanksLeaderboard();
       renderTanksStatus();
     } catch (error) {
+      const wasActive = tanksState.serverActive;
       tanksState.serverActive = false;
+      if (wasActive) notifyTanksServerOffline();
       renderTanksStatus();
     }
   }
@@ -1053,6 +1059,18 @@
     } else if (result.reason === "name_taken") {
       addTanksLog("Рекорд отклонен", NAME_TAKEN_MESSAGE, "warn");
     }
+    announceTanksCreditReward(result.credit_reward);
+  }
+
+  function announceTanksCreditReward(reward) {
+    const amount = Number(reward?.amount) || 0;
+    if (amount <= 0) return;
+    const credits = Number(reward?.credits) || amount;
+    addTanksLog("Кредиты начислены", `+${formatTanksCredits(amount)} за бой. Баланс: ${formatTanksCredits(credits)}.`, "good");
+  }
+
+  function formatTanksCredits(value) {
+    return new Intl.NumberFormat("ru-RU").format(Math.max(0, Math.floor(Number(value) || 0)));
   }
 
   function drawTanks() {
@@ -1532,6 +1550,12 @@
     } else if (!notice) {
       tanksState.serverNotice = "";
     }
+  }
+
+  function notifyTanksServerOffline() {
+    if (tanksState.serverNotice === SERVER_OFFLINE_MESSAGE) return;
+    tanksState.serverNotice = SERVER_OFFLINE_MESSAGE;
+    addTanksLog("Сервер", SERVER_OFFLINE_MESSAGE, "warn");
   }
 
   function syncTanksName() {

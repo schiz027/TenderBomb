@@ -2,6 +2,7 @@
   const POLL_MS = 900;
   const NAME_REQUIRED_MESSAGE = "Введите никнейм и сохраните!";
   const NAME_TAKEN_MESSAGE = "Этот ник уже занят другим игроком.";
+  const SERVER_OFFLINE_MESSAGE = "Сервер был отключен.";
   const COLORS = {
     white: "Белые",
     black: "Черные",
@@ -78,6 +79,7 @@
     checkersEls.saveNameBtn.addEventListener("click", saveCheckersName);
     checkersEls.botDifficulty.addEventListener("input", renderBotDifficulty);
     window.addEventListener("tenderBombOpenTanks", hideCheckersForExternalGame);
+    window.addEventListener("tenderBombOpenCasino", hideCheckersForExternalGame);
     window.addEventListener("tenderBombNameSaved", (event) => {
       const name = cleanCheckersName(event.detail?.name);
       if (!name) return;
@@ -255,7 +257,8 @@
       applyCheckersData(data);
     } catch (error) {
       checkersState.status = "offline";
-      checkersState.error = "Связь с сервером потерялась.";
+      checkersState.error = SERVER_OFFLINE_MESSAGE;
+      checkersState.serverNotice = SERVER_OFFLINE_MESSAGE;
       checkersState.joined = false;
       stopCheckersPolling();
       renderCheckers();
@@ -735,6 +738,11 @@
     return base;
   }
 
+  function checkersDisplayIndexes(game) {
+    const indexes = Array.from({ length: 64 }, (_, index) => index);
+    return game?.you === "black" ? indexes.reverse() : indexes;
+  }
+
   function renderCheckersBoard() {
     const game = checkersState.game;
     const board = game?.board || createPreviewCheckersBoard();
@@ -742,8 +750,9 @@
     const canMove = game?.status === "playing" && game.you === game.turn;
     updateCheckersBoardSize();
 
-    checkersEls.board.innerHTML = board
-      .map((piece, index) => {
+    checkersEls.board.innerHTML = checkersDisplayIndexes(game)
+      .map((index) => {
+        const piece = board[index];
         const row = Math.floor(index / 8);
         const col = index % 8;
         const playable = isCheckersPlayable(row, col);
@@ -887,12 +896,46 @@
     const col = index % 8;
     const opponent = piece.color === "white" ? "black" : "white";
     const moves = [];
-    [
+    const dirs = [
       [-1, -1],
       [-1, 1],
       [1, -1],
       [1, 1],
-    ].forEach(([rowDelta, colDelta]) => {
+    ];
+
+    if (piece.king) {
+      dirs.forEach(([rowDelta, colDelta]) => {
+        let capturedIndex = null;
+        let step = 1;
+
+        while (true) {
+          const scanRow = row + rowDelta * step;
+          const scanCol = col + colDelta * step;
+          if (!isCheckersPlayable(scanRow, scanCol)) break;
+
+          const scanIndex = scanRow * 8 + scanCol;
+          const scanPiece = board[scanIndex];
+
+          if (capturedIndex === null) {
+            if (!scanPiece) {
+              step += 1;
+              continue;
+            }
+            if (scanPiece.color === piece.color) break;
+            capturedIndex = scanIndex;
+            step += 1;
+            continue;
+          }
+
+          if (scanPiece) break;
+          moves.push({ from: index, to: scanIndex, capture: capturedIndex });
+          step += 1;
+        }
+      });
+      return moves;
+    }
+
+    dirs.forEach(([rowDelta, colDelta]) => {
       const midRow = row + rowDelta;
       const midCol = col + colDelta;
       const toRow = row + rowDelta * 2;
@@ -928,6 +971,26 @@
             [1, -1],
             [1, 1],
           ];
+
+    if (piece.king) {
+      const moves = [];
+      dirs.forEach(([rowDelta, colDelta]) => {
+        let step = 1;
+        while (true) {
+          const toRow = row + rowDelta * step;
+          const toCol = col + colDelta * step;
+          if (!isCheckersPlayable(toRow, toCol)) break;
+
+          const toIndex = toRow * 8 + toCol;
+          if (board[toIndex]) break;
+
+          moves.push({ from: index, to: toIndex, capture: null });
+          step += 1;
+        }
+      });
+      return moves;
+    }
+
     return dirs
       .map(([rowDelta, colDelta]) => [row + rowDelta, col + colDelta])
       .filter(([toRow, toCol]) => isCheckersPlayable(toRow, toCol))

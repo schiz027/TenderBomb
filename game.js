@@ -53,6 +53,7 @@ const THEMES = ["beige", "green", "purple", "pink", "blue", "dark"];
 const RECORD_MIN_SECONDS = { express: 6, state: 18, registry: 45 };
 const NAME_REQUIRED_MESSAGE = "Введите никнейм и сохраните!";
 const NAME_TAKEN_MESSAGE = "Этот ник уже занят другим игроком.";
+const SERVER_OFFLINE_MESSAGE = "Сервер был отключен.";
 
 const els = {};
 
@@ -88,6 +89,7 @@ function cacheElements() {
   els.resultEyebrow = document.querySelector("#resultEyebrow");
   els.resultTitle = document.querySelector("#resultTitle");
   els.resultText = document.querySelector("#resultText");
+  els.resultCreditText = document.querySelector("#resultCreditText");
   els.roundStatus = document.querySelector("#roundStatus");
   els.risksLeft = document.querySelector("#risksLeft");
   els.flagsUsed = document.querySelector("#flagsUsed");
@@ -421,6 +423,7 @@ async function refreshMultiplayerState() {
     cacheLeaderboards(multiplayer.leaderboards);
     renderMultiplayer();
   } catch (error) {
+    notifyServerOffline();
     multiplayer.active = false;
     renderMultiplayer();
   }
@@ -449,6 +452,7 @@ async function submitMultiplayerResult(status) {
     multiplayer.leaderboard = data.leaderboard || data.state?.leaderboard || multiplayer.leaderboard;
     multiplayer.leaderboards = data.leaderboards || data.state?.leaderboards || multiplayer.leaderboards;
     cacheLeaderboards(multiplayer.leaderboards);
+    updateResultCreditSummary(data.result);
     if (status === "won") {
       announceRecordResult(data.result);
     }
@@ -595,6 +599,27 @@ function announceRecordResult(result) {
   } else if (result.reason === "name_taken") {
     addLog("Рекорд отклонен", NAME_TAKEN_MESSAGE, "warn");
   }
+  announceCreditReward(result.credit_reward);
+}
+
+function announceCreditReward(reward) {
+  const amount = Number(reward?.amount) || 0;
+  if (amount <= 0) return;
+  const credits = Math.max(0, Number(reward.credits) || 0);
+  addLog("Кредиты начислены", `+${formatCredits(amount)} за победу. Баланс: ${formatCredits(credits)}.`, "good");
+}
+
+function updateResultCreditSummary(result) {
+  if (!els.resultCreditText || !result?.credit_reward || els.resultModal.hidden) return;
+  const amount = Math.max(0, Number(result.credit_reward.amount) || 0);
+  const credits = Math.max(0, Number(result.credit_reward.credits) || 0);
+  const earned = amount > 0 ? `+${formatCredits(amount)}` : "+0";
+  els.resultCreditText.textContent = `Кредиты за раунд: ${earned}. Баланс: ${formatCredits(credits)}.`;
+  els.resultCreditText.hidden = false;
+}
+
+function formatCredits(value) {
+  return new Intl.NumberFormat("ru-RU").format(Math.max(0, Math.floor(Number(value) || 0)));
 }
 
 function applyServerNotice(data) {
@@ -605,6 +630,12 @@ function applyServerNotice(data) {
   } else if (!notice) {
     multiplayer.serverNotice = "";
   }
+}
+
+function notifyServerOffline() {
+  if (multiplayer.serverNotice === SERVER_OFFLINE_MESSAGE) return;
+  multiplayer.serverNotice = SERVER_OFFLINE_MESSAGE;
+  addLog("Сервер", SERVER_OFFLINE_MESSAGE, "warn");
 }
 
 async function apiGet(url) {
@@ -1168,6 +1199,10 @@ function showResult(title, text, eyebrow) {
   els.resultEyebrow.textContent = eyebrow;
   els.resultTitle.textContent = title;
   els.resultText.textContent = text;
+  if (els.resultCreditText) {
+    els.resultCreditText.textContent = "";
+    els.resultCreditText.hidden = true;
+  }
   els.resultModal.hidden = false;
 }
 
@@ -1376,6 +1411,7 @@ function addLog(title, text, tone = "info") {
 }
 
 function iconForEvent(title, tone) {
+  if (title.includes("Кредиты")) return "assets/icon-glove-ru.svg";
   if (title.includes("Выписка") || title.includes("Протокол")) return "assets/icon-extract-rf.svg";
   if (title.includes("ФАС") || title.includes("Жалоба")) return "assets/icon-fas.svg";
   if (title.includes("Закрывашка") || title.includes("Эквивалент") || title.includes("Поставка")) {

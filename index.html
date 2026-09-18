@@ -25,15 +25,20 @@
           <p class="ban-disclaimer">
             Если будете использовать сторонние программы/эксплойты/баги, Вы будете <strong>ЗАБАНЕНЫ</strong>!
           </p>
-          <div class="launcher-buttons">
-            <button class="mini-game-button checkers-beta-button" id="openCheckersBtn" type="button">
-              <span>Шашки</span>
-              <span>beta</span>
-            </button>
-            <button class="mini-game-button tanks-beta-button" id="openTanksBtn" type="button">
-              <span>Танчики</span>
-              <span>beta</span>
-            </button>
+          <div class="launcher-actions">
+            <div class="launcher-buttons">
+              <button class="mini-game-button casino-launch-button" id="openCasinoBtn" type="button">
+                <span>CASINO</span>
+                <span class="launcher-tag">NEW</span>
+              </button>
+              <button class="mini-game-button checkers-beta-button" id="openCheckersBtn" type="button">
+                <span>Шашки</span>
+              </button>
+              <button class="mini-game-button tanks-beta-button" id="openTanksBtn" type="button">
+                <span>Танчики</span>
+              </button>
+            </div>
+            <p class="launcher-credit-hint">Заработай кредиты</p>
           </div>
         </div>
         <div class="round-status" id="roundStatus">Новый аукцион</div>
@@ -120,6 +125,135 @@
             <span class="mood" id="riskMood">тихо</span>
           </div>
           <ol class="event-log" id="eventLog" aria-live="polite"></ol>
+          <div class="theme-panel" aria-label="Цветовая гамма интерфейса">
+            <div class="theme-panel-title">
+              <span>Тема интерфейса</span>
+            </div>
+            <div class="theme-switcher" role="group" aria-label="Выбор цветовой гаммы">
+              <button class="theme-button" type="button" data-theme="beige" aria-label="Бежевая тема" title="Бежевая тема"><span class="theme-swatch" aria-hidden="true"></span></button>
+              <button class="theme-button" type="button" data-theme="green" aria-label="Зелёная тема" title="Зелёная тема"><span class="theme-swatch" aria-hidden="true"></span></button>
+              <button class="theme-button" type="button" data-theme="purple" aria-label="Фиолетовая тема" title="Фиолетовая тема"><span class="theme-swatch" aria-hidden="true"></span></button>
+              <button class="theme-button" type="button" data-theme="pink" aria-label="Розовая тема" title="Розовая тема"><span class="theme-swatch" aria-hidden="true"></span></button>
+              <button class="theme-button" type="button" data-theme="blue" aria-label="Синяя тема" title="Синяя тема"><span class="theme-swatch" aria-hidden="true"></span></button>
+              <button class="theme-button" type="button" data-theme="dark" aria-label="Тёмная тема" title="Тёмная тема"><span class="theme-swatch" aria-hidden="true"></span></button>
+            </div>
+          </div>
+        </aside>
+      </main>
+
+      <main class="casino-screen" id="casinoView" aria-label="Казино" hidden>
+        <aside class="casino-panel casino-lobby" aria-label="Касса казино">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">касса</p>
+              <h3>Профиль</h3>
+            </div>
+            <span class="mood" id="casinoNetworkBadge">OFFLINE</span>
+          </div>
+          <label class="player-field">
+            <span>Имя</span>
+            <input id="casinoName" type="text" maxlength="32" autocomplete="nickname">
+          </label>
+          <div class="race-actions">
+            <button class="ghost-button" id="saveCasinoNameBtn" type="button">Сохранить ник</button>
+          </div>
+          <p class="race-status" id="casinoStatusText">Касса готовится.</p>
+          <div class="casino-credit-card" aria-label="Текущие кредиты">
+            <span>Кредиты</span>
+            <strong id="casinoCredits">0</strong>
+          </div>
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">банк</p>
+              <h3>Лидерборд</h3>
+            </div>
+            <span class="mood" id="casinoLeaderboardBadge">OFFLINE</span>
+          </div>
+          <section class="leaderboard-table">
+            <div class="leaderboard-title"><span>Кредиты</span><span id="casinoLeaderboardCount">0</span></div>
+            <ol class="leaderboard casino-leaderboard" id="casinoLeaderboard"></ol>
+          </section>
+        </aside>
+
+        <section class="casino-board-area" aria-label="Игры казино">
+          <header class="casino-header">
+            <div>
+              <p class="eyebrow">мини-игра</p>
+              <h2>Большое казино</h2>
+            </div>
+            <div class="casino-header-actions">
+              <span class="mood" id="casinoBadge">READY</span>
+              <button class="ghost-button casino-back-button" id="closeCasinoBtn" type="button">
+                <span aria-hidden="true">←</span>
+                <span>Назад в TenderBomb</span>
+              </button>
+            </div>
+          </header>
+
+          <div class="casino-stats-row" aria-live="polite">
+            <div class="stat casino-stat" aria-label="Баланс">
+              <span class="casino-stat-icon">¤</span>
+              <span class="casino-stat-copy">
+                <span class="stat-value" id="casinoCreditsStat">0</span>
+                <span class="stat-label">кредиты</span>
+              </span>
+            </div>
+            <div class="stat casino-stat" aria-label="Ставка">
+              <span class="casino-stat-icon">×</span>
+              <span class="casino-stat-copy">
+                <span class="stat-value" id="casinoBetStat">25</span>
+                <span class="stat-label">ставка</span>
+              </span>
+            </div>
+            <div class="stat casino-stat" aria-label="Последняя выплата">
+              <span class="casino-stat-icon">+</span>
+              <span class="casino-stat-copy">
+                <span class="stat-value" id="casinoPayoutStat">0</span>
+                <span class="stat-label">выплата</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="casino-game-switch" role="tablist" aria-label="Игры казино">
+            <button class="mode-button is-active" type="button" data-casino-game="slots">Слоты</button>
+            <button class="mode-button" type="button" disabled>В разработке</button>
+            <button class="mode-button" type="button" disabled>В разработке</button>
+          </div>
+
+          <div class="casino-slot-shell">
+            <div class="casino-slot-machine" aria-label="Слоты">
+              <div class="casino-reels" id="casinoReels" aria-live="polite">
+                <span class="casino-reel">🍒</span>
+                <span class="casino-reel">🍋</span>
+                <span class="casino-reel">🔔</span>
+              </div>
+              <p class="casino-spin-result" id="casinoSpinResult">Готово к крутке</p>
+            </div>
+            <div class="casino-bet-panel" aria-label="Выбор ставки">
+              <div class="casino-bet-controls">
+                <div class="casino-bet-buttons" id="casinoBetButtons">
+                  <button class="tool-button" type="button" data-casino-bet="10">10</button>
+                  <button class="tool-button is-ready" type="button" data-casino-bet="25">25</button>
+                  <button class="tool-button" type="button" data-casino-bet="50">50</button>
+                  <button class="tool-button" type="button" data-casino-bet="100">100</button>
+                  <button class="tool-button" type="button" data-casino-bet="250">250</button>
+                </div>
+                <label class="casino-custom-bet">
+                  <span>Своя ставка</span>
+                  <input id="casinoCustomBet" type="number" min="1" max="10000" step="1" inputmode="numeric" value="25">
+                </label>
+              </div>
+              <button class="primary-button casino-spin-button" id="casinoSpinBtn" type="button">Крутить</button>
+            </div>
+          </div>
+        </section>
+
+        <aside class="casino-panel casino-log-panel" aria-label="Лог казино">
+          <div>
+            <p class="eyebrow">раунд</p>
+            <h3 id="casinoLogTitle">Крутки</h3>
+          </div>
+          <ol class="checkers-log casino-log" id="casinoLog"></ol>
           <div class="theme-panel" aria-label="Цветовая гамма интерфейса">
             <div class="theme-panel-title">
               <span>Тема интерфейса</span>
@@ -370,6 +504,7 @@
         <p class="eyebrow" id="resultEyebrow">протокол</p>
         <h2 id="resultTitle">Раунд завершен</h2>
         <p id="resultText"></p>
+        <p class="result-credit-text" id="resultCreditText" hidden></p>
         <div class="result-actions">
           <button class="primary-button" id="modalNewGameBtn" type="button">Новый аукцион</button>
           <button class="ghost-button" id="closeModalBtn" type="button">Посмотреть поле</button>
@@ -379,6 +514,7 @@
 
     <script src="leaderboard-cache.js" defer></script>
     <script src="game.js" defer></script>
+    <script src="casino.js" defer></script>
     <script src="checkers.js" defer></script>
     <script src="tanks.js" defer></script>
   </body>
