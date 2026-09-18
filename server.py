@@ -30,6 +30,7 @@ TANKS_CREDIT_DIVISOR = 50
 TANKS_CREDIT_CAP = 1200
 CHECKERS_CREDIT_REWARD = 1000
 CHECKERS_CREDIT_REASONS = {"no_pieces", "no_moves"}
+CHECKERS_BOT_CREDIT_REWARDS = {level: level * 300 for level in range(1, 6)}
 CASINO_STARTING_CREDITS = 1000
 CASINO_PRESET_BETS = {10, 25, 50, 100, 250}
 CASINO_MIN_BET = 1
@@ -55,6 +56,8 @@ ROUND_STATE = {"rounds": {}}
 CHECKERS_QUEUE_TTL_MS = 90_000
 CHECKERS_GAME_TTL_MS = 45 * 60 * 1000
 CHECKERS_STATE = {"queue": [], "games": {}}
+CHECKERS_SINGLEPLAYER_RESULT_TTL_MS = 24 * 60 * 60 * 1000
+CHECKERS_SINGLEPLAYER_RESULTS = {}
 
 
 def now_ms():
@@ -1151,6 +1154,69 @@ def remove_checkers_queue_entry(client_id):
     return len(CHECKERS_STATE["queue"]) != before
 
 
+def cleanup_checkers_singleplayer_results(current=None):
+    current = current or now_ms()
+    expired = [
+        key
+        for key, item in CHECKERS_SINGLEPLAYER_RESULTS.items()
+        if current - safe_int(item.get("created_at"), 0) > CHECKERS_SINGLEPLAYER_RESULT_TTL_MS
+    ]
+    for key in expired:
+        del CHECKERS_SINGLEPLAYER_RESULTS[key]
+
+
+def register_checkers_singleplayer_result(payload, client_ip):
+    cleanup_checkers_singleplayer_results()
+    player = clean_player(payload.get("player") or STATE["profiles"].get(client_ip))
+    if not player:
+        return with_server_notice({"ok": False, "result": {"recorded": False, "reason": "invalid_player", "error": "invalid_player"}})
+    if is_player_name_taken(client_ip, player):
+        return with_server_notice({"ok": False, "result": {"recorded": False, "reason": "name_taken", "error": "name_taken"}})
+
+    difficulty = max(1, min(safe_int(payload.get("difficulty"), 3), 5))
+    result_id = clean_round_id(payload.get("result_id") or payload.get("game_id"))
+    if not result_id:
+        return with_server_notice({"ok": False, "result": {"recorded": False, "reason": "invalid_round", "error": "invalid_round"}})
+
+    status = str(payload.get("status") or "")
+    if status != "won":
+        return with_server_notice({
+            "ok": True,
+            "result": attach_credit_summary({"recorded": False, "reason": status or "lost"}, client_ip, f"checkers:bot:{difficulty}"),
+        })
+
+    owner = record_owner_key(client_ip)
+    key = f"{owner}:{result_id}"
+    if key in CHECKERS_SINGLEPLAYER_RESULTS:
+        return with_server_notice({
+            "ok": True,
+            "result": attach_credit_summary({"recorded": False, "reason": "duplicate"}, client_ip, f"checkers:bot:{difficulty}"),
+        })
+
+    dirty = set_profile(client_ip, player)
+    reward, reward_dirty = add_casino_credits(
+        client_ip,
+        player,
+        CHECKERS_BOT_CREDIT_REWARDS.get(difficulty, 300),
+        f"checkers:bot:{difficulty}",
+    )
+    if reward_dirty:
+        dirty = True
+    CHECKERS_SINGLEPLAYER_RESULTS[key] = {"created_at": now_ms(), "difficulty": difficulty}
+    if dirty:
+        save_records()
+
+    return with_server_notice({
+        "ok": True,
+        "result": {
+            "recorded": True,
+            "reason": "won",
+            "difficulty": difficulty,
+            "credit_reward": reward,
+        },
+    })
+
+
 def touch_checkers_name(client_id, player, client_ip=""):
     owner = record_owner_key(client_ip)
     game = find_checkers_game(client_id)
@@ -1657,6 +1723,11 @@ class TenderBombHandler(SimpleHTTPRequestHandler):
         if path == "/api/checkers/leave":
             with LOCK:
                 self.send_json(leave_checkers(payload))
+            return
+
+        if path == "/api/checkers/singleplayer-result":
+            with LOCK:
+                self.send_json(register_checkers_singleplayer_result(payload, self.client_address[0]))
             return
 
         if path == "/api/checkers/move":

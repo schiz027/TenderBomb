@@ -336,6 +336,7 @@
       last_move: null,
       clocks: { white: 0, black: 0 },
       turn_started_at: Date.now(),
+      creditSubmitted: false,
       log: [{ tone: "info", text: `Одиночная партия: ты играешь белыми против бота ${botProfile.label}.` }],
     };
   }
@@ -457,8 +458,39 @@
     game.winner = winner;
     game.reason = reason;
     game.must_continue_from = null;
-    game.log.unshift({ tone: winner === game.you ? "good" : "bad", text: `Победа: ${game.players[winner].name}.` });
+    const won = winner === game.you;
+    game.log.unshift({ tone: won ? "good" : "bad", text: won ? "Победа!" : `Победа: ${game.players[winner].name}.` });
     game.log = game.log.slice(0, 16);
+    if (won) submitSingleplayerCheckersReward(game);
+  }
+
+  async function submitSingleplayerCheckersReward(game) {
+    if (!game || game.creditSubmitted || window.location.protocol === "file:") return;
+    game.creditSubmitted = true;
+    try {
+      const data = await checkersPost("/api/checkers/singleplayer-result", {
+        ...checkersPayload(),
+        result_id: game.id,
+        difficulty: game.botDifficulty,
+        status: "won",
+      });
+      applyCheckersServerNotice(data);
+      const reward = data?.result?.credit_reward;
+      const amount = Number(reward?.amount) || 0;
+      const credits = Number(reward?.credits) || 0;
+      if (amount > 0) {
+        game.log.unshift({
+          tone: "good",
+          text: `Кредиты начислены: +${formatCheckersCredits(amount)}. Баланс: ${formatCheckersCredits(credits)}.`,
+        });
+        game.log = game.log.slice(0, 16);
+      }
+      renderCheckers();
+    } catch (error) {
+      game.log.unshift({ tone: "warn", text: "Кредиты за победу не начислены: сервер не ответил." });
+      game.log = game.log.slice(0, 16);
+      renderCheckers();
+    }
   }
 
   function scheduleBotMove() {
@@ -1052,6 +1084,10 @@
       return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
     }
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  function formatCheckersCredits(value) {
+    return new Intl.NumberFormat("ru-RU").format(Math.max(0, Math.floor(Number(value) || 0)));
   }
 
   function syncCheckersName() {
