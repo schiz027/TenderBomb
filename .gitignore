@@ -1,1 +1,21 @@
+# Local player data / generated leaderboard snapshots
+leaderboard-records.json
+leaderboard-cache.js
+
+# Temporary server notice marker
+.server-notice.json
+
+# Logs
 *.log
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Browser / test profile
+.chrome-test-profile/
+
+# Temp files
+*.tmp
+*.bak
+*.pid
