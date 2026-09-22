@@ -32,23 +32,74 @@ CHECKERS_CREDIT_REWARD = 1000
 CHECKERS_CREDIT_REASONS = {"no_pieces", "no_moves"}
 CHECKERS_BOT_CREDIT_REWARDS = {level: level * 300 for level in range(1, 6)}
 CASINO_STARTING_CREDITS = 1000
-CASINO_PRESET_BETS = {10, 25, 50, 100, 250}
+CASINO_PRESET_BETS = {10, 25, 50, 100, 250, 500, 1000}
 CASINO_MIN_BET = 1
 CASINO_MAX_BET = 10_000
 CASINO_HISTORY_LIMIT = 12
+CASINO_BIG_WINS_LIMIT = 10
+CASINO_BIG_WIN_THRESHOLD = 1000
+CASINO_JACKPOT_SEED = 500
+CASINO_JACKPOT_RATE_PERCENT = 4
+CASINO_JACKPOT_SYMBOL = "tenderbomb"
 CASINO_SYMBOLS = [
-    {"symbol": "🍒", "weight": 28, "two": 1, "three": 5},
-    {"symbol": "🍋", "weight": 24, "two": 1, "three": 6},
-    {"symbol": "🍇", "weight": 20, "two": 2, "three": 8},
-    {"symbol": "🔔", "weight": 14, "two": 2, "three": 12},
-    {"symbol": "⭐", "weight": 9, "two": 3, "three": 18},
-    {"symbol": "💎", "weight": 5, "two": 5, "three": 35},
+    {
+        "symbol": "document",
+        "label": "Документы",
+        "asset": "assets/casino-symbol-document.png",
+        "weight": 28,
+        "two": 1,
+        "three": 5,
+    },
+    {
+        "symbol": "seal",
+        "label": "Печать",
+        "asset": "assets/casino-symbol-seal.png",
+        "weight": 24,
+        "two": 1,
+        "three": 6,
+    },
+    {
+        "symbol": "supply",
+        "label": "Поставка",
+        "asset": "assets/casino-symbol-supply.png",
+        "weight": 20,
+        "two": 2,
+        "three": 8,
+    },
+    {
+        "symbol": "fas",
+        "label": "ФАС",
+        "asset": "assets/casino-symbol-fas.png",
+        "weight": 14,
+        "two": 2,
+        "three": 12,
+    },
+    {
+        "symbol": "goszakaz",
+        "label": "Госзаказ",
+        "asset": "assets/casino-symbol-goszakaz.png",
+        "weight": 9,
+        "two": 3,
+        "three": 18,
+    },
+    {
+        "symbol": "tenderbomb",
+        "label": "TenderBomb",
+        "asset": "assets/casino-symbol-tenderbomb.png",
+        "weight": 5,
+        "two": 5,
+        "three": 35,
+    },
 ]
 LOCK = threading.Lock()
 RECORDS_PATH = Path(__file__).resolve().with_name("leaderboard-records.json")
 LEADERBOARD_CACHE_PATH = Path(__file__).resolve().with_name("leaderboard-cache.js")
 SERVER_NOTICE_PATH = Path(__file__).resolve().with_name(".server-notice.json")
-STATE = {"records": {mode: {} for mode in RECORD_MODES}, "profiles": {}}
+STATE = {
+    "records": {mode: {} for mode in RECORD_MODES},
+    "profiles": {},
+    "casino": {"jackpot": CASINO_JACKPOT_SEED, "big_wins": []},
+}
 SERVER_CONTROL = {"server": None, "restart": False, "stealth": False, "notice": "", "notice_until": 0}
 TANKS_GOD_OWNERS = set()
 ROUND_TTL_MS = 2 * 60 * 60 * 1000
@@ -343,19 +394,26 @@ def load_records():
             if str(ip).strip() and player:
                 cleaned_profiles[str(ip)] = player
         STATE["profiles"] = cleaned_profiles
+    cleaned_casino = clean_casino_meta(data.get("casino"))
+    if STATE.get("casino") != cleaned_casino:
+        STATE["casino"] = cleaned_casino
+        if data.get("casino") != cleaned_casino:
+            changed = True
+    elif "casino" not in data:
+        changed = True
     if normalize_all_records_by_ip():
         changed = True
     return changed
 
 
 def save_records():
-    data = {"records": STATE["records"], "profiles": STATE["profiles"]}
+    data = {"records": STATE["records"], "profiles": STATE["profiles"], "casino": STATE["casino"]}
     RECORDS_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     save_leaderboard_cache(data)
 
 
 def save_leaderboard_cache(data=None):
-    payload = data or {"records": STATE["records"], "profiles": STATE["profiles"]}
+    payload = data or {"records": STATE["records"], "profiles": STATE["profiles"], "casino": STATE["casino"]}
     cache = "window.TENDERBOMB_RECORDS = " + json.dumps(payload, ensure_ascii=False) + ";\n"
     LEADERBOARD_CACHE_PATH.write_text(cache, encoding="utf-8")
 
@@ -424,6 +482,49 @@ def public_tanks_state(client_ip=""):
     })
 
 
+def clean_casino_big_wins(items):
+    if not isinstance(items, list):
+        return []
+    big_wins = []
+    for item in items[:CASINO_BIG_WINS_LIMIT]:
+        if not isinstance(item, dict):
+            continue
+        symbols = item.get("symbols")
+        if not isinstance(symbols, list):
+            symbols = []
+        player = clean_player(item.get("player"))
+        if not player:
+            continue
+        big_wins.append({
+            "player": player,
+            "symbols": [str(symbol)[:32] for symbol in symbols[:3]],
+            "bet": max(0, safe_int(item.get("bet"), 0)),
+            "payout": max(0, safe_int(item.get("payout"), 0)),
+            "net": max(0, safe_int(item.get("net"), 0)),
+            "jackpot": max(0, safe_int(item.get("jackpot"), 0)),
+            "jackpot_hit": bool(item.get("jackpot_hit")),
+            "created_at": max(0, safe_int(item.get("created_at"), 0)),
+        })
+    return big_wins
+
+
+def clean_casino_meta(meta=None):
+    if not isinstance(meta, dict):
+        meta = {}
+    jackpot = max(CASINO_JACKPOT_SEED, safe_int(meta.get("jackpot"), CASINO_JACKPOT_SEED))
+    return {
+        "jackpot": jackpot,
+        "big_wins": clean_casino_big_wins(meta.get("big_wins")),
+    }
+
+
+def ensure_casino_meta():
+    cleaned = clean_casino_meta(STATE.get("casino"))
+    changed = STATE.get("casino") != cleaned
+    STATE["casino"] = cleaned
+    return cleaned, changed
+
+
 def clean_casino_history(items):
     if not isinstance(items, list):
         return []
@@ -435,11 +536,15 @@ def clean_casino_history(items):
         if not isinstance(symbols, list):
             symbols = []
         history.append({
-            "symbols": [str(symbol)[:4] for symbol in symbols[:3]],
+            "symbols": [str(symbol)[:32] for symbol in symbols[:3]],
             "bet": max(0, safe_int(item.get("bet"), 0)),
             "payout": max(0, safe_int(item.get("payout"), 0)),
             "net": safe_int(item.get("net"), 0),
             "credits": max(0, safe_int(item.get("credits"), 0)),
+            "jackpot": max(0, safe_int(item.get("jackpot"), 0)),
+            "jackpot_contribution": max(0, safe_int(item.get("jackpot_contribution"), 0)),
+            "jackpot_win": max(0, safe_int(item.get("jackpot_win"), 0)),
+            "jackpot_hit": bool(item.get("jackpot_hit")),
             "created_at": max(0, safe_int(item.get("created_at"), 0)),
         })
     return history
@@ -578,14 +683,31 @@ def public_casino_scores():
     return [public_record(item) for item in scores[:50]]
 
 
+def public_casino_payouts():
+    return [
+        {
+            "symbol": str(item.get("symbol", ""))[:32],
+            "label": str(item.get("label", ""))[:32],
+            "asset": str(item.get("asset", ""))[:96],
+            "two": max(0, safe_int(item.get("two"), 0)),
+            "three": max(0, safe_int(item.get("three"), 0)),
+            "jackpot": item.get("symbol") == CASINO_JACKPOT_SYMBOL,
+        }
+        for item in CASINO_SYMBOLS
+    ]
+
+
 def public_casino_state(client_ip="", create=True):
     owner = record_owner_key(client_ip)
     player = STATE["profiles"].get(owner, "")
     record = None
     dirty = False
+    casino_meta, meta_dirty = ensure_casino_meta()
+    dirty = dirty or meta_dirty
     if owner and player:
         if create:
             record, dirty = ensure_casino_record(owner, player)
+            dirty = dirty or meta_dirty
         else:
             record = STATE["records"].get(CASINO_MODE, {}).get(owner)
     if dirty:
@@ -604,6 +726,12 @@ def public_casino_state(client_ip="", create=True):
         "spent": safe_int(record.get("spent"), 0) if record else 0,
         "history": clean_casino_history(record.get("history")) if record else [],
         "leaderboard": public_casino_scores(),
+        "jackpot": safe_int(casino_meta.get("jackpot"), CASINO_JACKPOT_SEED),
+        "jackpot_symbol": CASINO_JACKPOT_SYMBOL,
+        "jackpot_seed": CASINO_JACKPOT_SEED,
+        "jackpot_rate_percent": CASINO_JACKPOT_RATE_PERCENT,
+        "big_wins": clean_casino_big_wins(casino_meta.get("big_wins")),
+        "payouts": public_casino_payouts(),
         "bets": sorted(CASINO_PRESET_BETS),
         "min_bet": CASINO_MIN_BET,
         "max_bet": CASINO_MAX_BET,
@@ -630,6 +758,13 @@ def casino_symbol_rule(symbol):
     return CASINO_SYMBOLS[0]
 
 
+def casino_jackpot_contribution(bet):
+    bet = max(0, safe_int(bet, 0))
+    if bet <= 0:
+        return 0
+    return max(1, bet * CASINO_JACKPOT_RATE_PERCENT // 100)
+
+
 def evaluate_casino_spin(symbols, bet):
     counts = {}
     for symbol in symbols:
@@ -642,7 +777,12 @@ def evaluate_casino_spin(symbols, bet):
         payout = bet * safe_int(rule.get("two"), 0)
     else:
         payout = 0
-    return payout, payout - bet
+    return {
+        "symbol": symbol,
+        "count": count,
+        "payout": payout,
+        "net": payout - bet,
+    }
 
 
 def casino_state_with_result(client_ip, result):
@@ -683,10 +823,20 @@ def register_casino_spin(payload, client_ip):
             },
         )
 
+    casino_meta, meta_dirty = ensure_casino_meta()
+    dirty = dirty or meta_dirty
+    jackpot_before = max(CASINO_JACKPOT_SEED, safe_int(casino_meta.get("jackpot"), CASINO_JACKPOT_SEED))
+    jackpot_contribution = casino_jackpot_contribution(bet)
     symbols = [weighted_casino_symbol() for _ in range(3)]
-    payout, net = evaluate_casino_spin(symbols, bet)
+    spin_value = evaluate_casino_spin(symbols, bet)
+    base_payout = max(0, safe_int(spin_value.get("payout"), 0))
+    jackpot_hit = spin_value.get("count") >= 3 and spin_value.get("symbol") == CASINO_JACKPOT_SYMBOL
+    jackpot_win = jackpot_before + jackpot_contribution if jackpot_hit else 0
+    payout = base_payout + jackpot_win
+    net = payout - bet
     current = now_ms()
     credits = max(0, credits - bet + payout)
+    casino_meta["jackpot"] = CASINO_JACKPOT_SEED if jackpot_hit else jackpot_before + jackpot_contribution
 
     record["credits"] = credits
     record["spins"] = max(0, safe_int(record.get("spins"), 0)) + 1
@@ -706,10 +856,30 @@ def register_casino_spin(payload, client_ip):
             "payout": payout,
             "net": net,
             "credits": credits,
+            "jackpot": safe_int(casino_meta.get("jackpot"), CASINO_JACKPOT_SEED),
+            "jackpot_contribution": jackpot_contribution,
+            "jackpot_win": jackpot_win,
+            "jackpot_hit": jackpot_hit,
             "created_at": current,
         },
         *clean_casino_history(record.get("history")),
     ][:CASINO_HISTORY_LIMIT]
+
+    is_big_win = net > 0 and (jackpot_hit or net >= max(CASINO_BIG_WIN_THRESHOLD, bet * 10))
+    if is_big_win:
+        casino_meta["big_wins"] = [
+            {
+                "player": player,
+                "symbols": symbols,
+                "bet": bet,
+                "payout": payout,
+                "net": net,
+                "jackpot": jackpot_win,
+                "jackpot_hit": jackpot_hit,
+                "created_at": current,
+            },
+            *clean_casino_big_wins(casino_meta.get("big_wins")),
+        ][:CASINO_BIG_WINS_LIMIT]
 
     save_records()
 
@@ -723,6 +893,11 @@ def register_casino_spin(payload, client_ip):
             "payout": payout,
             "net": net,
             "credits": credits,
+            "jackpot": safe_int(casino_meta.get("jackpot"), CASINO_JACKPOT_SEED),
+            "jackpot_contribution": jackpot_contribution,
+            "jackpot_win": jackpot_win,
+            "jackpot_hit": jackpot_hit,
+            "big_win": is_big_win,
         },
     )
 

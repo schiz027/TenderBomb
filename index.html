@@ -162,6 +162,17 @@
             <span>Кредиты</span>
             <strong id="casinoCredits">0</strong>
           </div>
+          <section class="casino-game-panel" aria-label="Выбор игры казино">
+            <div>
+              <p class="eyebrow">зал</p>
+              <h3>Игры казино</h3>
+            </div>
+            <div class="casino-game-switch casino-game-switch-panel" role="tablist" aria-label="Игры казино">
+              <button class="mode-button is-active" type="button" data-casino-game="slots">Слоты</button>
+              <button class="mode-button" type="button" disabled>В разработке</button>
+              <button class="mode-button" type="button" disabled>В разработке</button>
+            </div>
+          </section>
           <div class="panel-header">
             <div>
               <p class="eyebrow">банк</p>
@@ -190,42 +201,40 @@
             </div>
           </header>
 
-          <div class="casino-stats-row" aria-live="polite">
-            <div class="stat casino-stat" aria-label="Баланс">
-              <span class="casino-stat-icon">¤</span>
-              <span class="casino-stat-copy">
-                <span class="stat-value" id="casinoCreditsStat">0</span>
-                <span class="stat-label">кредиты</span>
-              </span>
+          <section class="casino-payout-panel" aria-label="Таблица выплат">
+            <div class="casino-jackpot-card">
+              <span>Джекпот</span>
+              <strong id="casinoJackpot">0</strong>
+              <small id="casinoJackpotHint">TenderBomb x3 забирает банк</small>
             </div>
-            <div class="stat casino-stat" aria-label="Ставка">
-              <span class="casino-stat-icon">×</span>
-              <span class="casino-stat-copy">
-                <span class="stat-value" id="casinoBetStat">25</span>
-                <span class="stat-label">ставка</span>
-              </span>
-            </div>
-            <div class="stat casino-stat" aria-label="Последняя выплата">
-              <span class="casino-stat-icon">+</span>
-              <span class="casino-stat-copy">
-                <span class="stat-value" id="casinoPayoutStat">0</span>
-                <span class="stat-label">выплата</span>
-              </span>
-            </div>
-          </div>
-
-          <div class="casino-game-switch" role="tablist" aria-label="Игры казино">
-            <button class="mode-button is-active" type="button" data-casino-game="slots">Слоты</button>
-            <button class="mode-button" type="button" disabled>В разработке</button>
-            <button class="mode-button" type="button" disabled>В разработке</button>
-          </div>
+            <div class="casino-payout-table" id="casinoPayoutTable"></div>
+          </section>
 
           <div class="casino-slot-shell">
-            <div class="casino-slot-machine" aria-label="Слоты">
-              <div class="casino-reels" id="casinoReels" aria-live="polite">
-                <span class="casino-reel">🍒</span>
-                <span class="casino-reel">🍋</span>
-                <span class="casino-reel">🔔</span>
+            <div class="casino-slot-machine" id="casinoSlotMachine" aria-label="Слоты">
+              <div class="casino-machine-stage">
+                <div class="casino-reel-window">
+                  <div class="casino-reels casino-reels-ghost casino-reels-top" id="casinoTopReels" aria-hidden="true">
+                    <span class="casino-reel"><img class="casino-symbol-img" src="assets/casino-symbol-goszakaz.png" alt=""></span>
+                    <span class="casino-reel"><img class="casino-symbol-img" src="assets/casino-symbol-document.png" alt=""></span>
+                    <span class="casino-reel"><img class="casino-symbol-img" src="assets/casino-symbol-supply.png" alt=""></span>
+                  </div>
+                  <div class="casino-reels casino-reels-main" id="casinoReels" aria-live="polite">
+                    <span class="casino-reel"><img class="casino-symbol-img" src="assets/casino-symbol-document.png" alt="Документы"></span>
+                    <span class="casino-reel"><img class="casino-symbol-img" src="assets/casino-symbol-seal.png" alt="Печать"></span>
+                    <span class="casino-reel"><img class="casino-symbol-img" src="assets/casino-symbol-fas.png" alt="ФАС"></span>
+                  </div>
+                  <div class="casino-reels casino-reels-ghost casino-reels-bottom" id="casinoBottomReels" aria-hidden="true">
+                    <span class="casino-reel"><img class="casino-symbol-img" src="assets/casino-symbol-seal.png" alt=""></span>
+                    <span class="casino-reel"><img class="casino-symbol-img" src="assets/casino-symbol-tenderbomb.png" alt=""></span>
+                    <span class="casino-reel"><img class="casino-symbol-img" src="assets/casino-symbol-fas.png" alt=""></span>
+                  </div>
+                </div>
+                <button class="casino-lever" id="casinoSpinBtn" type="button" aria-label="Крутить слоты">
+                  <span class="casino-lever-knob" aria-hidden="true"></span>
+                  <span class="casino-lever-stick" aria-hidden="true"></span>
+                  <span class="casino-lever-base" aria-hidden="true"></span>
+                </button>
               </div>
               <p class="casino-spin-result" id="casinoSpinResult">Готово к крутке</p>
             </div>
@@ -237,20 +246,31 @@
                   <button class="tool-button" type="button" data-casino-bet="50">50</button>
                   <button class="tool-button" type="button" data-casino-bet="100">100</button>
                   <button class="tool-button" type="button" data-casino-bet="250">250</button>
+                  <button class="tool-button" type="button" data-casino-bet="500">500</button>
+                  <button class="tool-button" type="button" data-casino-bet="1000">1000</button>
                 </div>
                 <label class="casino-custom-bet">
                   <span>Своя ставка</span>
                   <input id="casinoCustomBet" type="number" min="1" max="10000" step="1" inputmode="numeric" value="25">
                 </label>
               </div>
-              <button class="primary-button casino-spin-button" id="casinoSpinBtn" type="button">Крутить</button>
             </div>
           </div>
         </section>
 
         <aside class="casino-panel casino-log-panel" aria-label="Лог казино">
+          <section class="casino-big-wins-panel" aria-label="Крупные выигрыши">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">зал</p>
+                <h3>Крупные выигрыши</h3>
+              </div>
+              <span class="mood" id="casinoBigWinsBadge">0</span>
+            </div>
+            <ol class="checkers-log casino-big-wins" id="casinoBigWins"></ol>
+          </section>
           <div>
-            <p class="eyebrow">раунд</p>
+            <p class="eyebrow">мои крутки</p>
             <h3 id="casinoLogTitle">Крутки</h3>
           </div>
           <ol class="checkers-log casino-log" id="casinoLog"></ol>
@@ -508,6 +528,18 @@
         <div class="result-actions">
           <button class="primary-button" id="modalNewGameBtn" type="button">Новый аукцион</button>
           <button class="ghost-button" id="closeModalBtn" type="button">Посмотреть поле</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-modal system-notice-modal" id="systemNoticeModal" hidden>
+      <div class="result-dialog system-notice-dialog" role="dialog" aria-modal="true" aria-labelledby="systemNoticeTitle">
+        <p class="eyebrow" id="systemNoticeEyebrow">сервер</p>
+        <h2 id="systemNoticeTitle">Сервер</h2>
+        <p id="systemNoticeText"></p>
+        <div class="result-actions">
+          <button class="primary-button" id="systemNoticeReloadBtn" type="button">Обновить страницу</button>
+          <button class="ghost-button" id="systemNoticeCloseBtn" type="button">Понятно</button>
         </div>
       </div>
     </div>

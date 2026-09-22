@@ -1547,6 +1547,7 @@
     if (notice && notice !== tanksState.serverNotice) {
       tanksState.serverNotice = notice;
       addTanksLog("Сервер", notice, "warn");
+      window.TenderBombNotice?.show(notice);
     } else if (!notice) {
       tanksState.serverNotice = "";
     }
@@ -1556,6 +1557,7 @@
     if (tanksState.serverNotice === SERVER_OFFLINE_MESSAGE) return;
     tanksState.serverNotice = SERVER_OFFLINE_MESSAGE;
     addTanksLog("Сервер", SERVER_OFFLINE_MESSAGE, "warn");
+    window.TenderBombNotice?.show(SERVER_OFFLINE_MESSAGE);
   }
 
   function syncTanksName() {

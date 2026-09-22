@@ -1,3 +1,71 @@
+(() => {
+  const systemNoticeState = {
+    modal: null,
+    eyebrow: null,
+    title: null,
+    text: null,
+    reloadBtn: null,
+    closeBtn: null,
+    lastMessage: "",
+  };
+
+  function cacheSystemNoticeElements() {
+    systemNoticeState.modal = document.querySelector("#systemNoticeModal");
+    systemNoticeState.eyebrow = document.querySelector("#systemNoticeEyebrow");
+    systemNoticeState.title = document.querySelector("#systemNoticeTitle");
+    systemNoticeState.text = document.querySelector("#systemNoticeText");
+    systemNoticeState.reloadBtn = document.querySelector("#systemNoticeReloadBtn");
+    systemNoticeState.closeBtn = document.querySelector("#systemNoticeCloseBtn");
+  }
+
+  function systemNoticeTitle(message) {
+    const text = String(message || "").toLowerCase();
+    if (text.includes("перезап")) return "Сервер перезапущен";
+    if (text.includes("отключ")) return "Сервер отключен";
+    return "Сервер";
+  }
+
+  function shouldOfferReload(message) {
+    const text = String(message || "").toLowerCase();
+    return text.includes("перезап");
+  }
+
+  function showSystemNotice(message) {
+    const text = String(message || "").trim();
+    if (!text) return;
+    if (!systemNoticeState.modal) cacheSystemNoticeElements();
+    if (!systemNoticeState.modal || !systemNoticeState.title || !systemNoticeState.text) return;
+    if (systemNoticeState.lastMessage === text && !systemNoticeState.modal.hidden) return;
+
+    systemNoticeState.lastMessage = text;
+    if (systemNoticeState.eyebrow) systemNoticeState.eyebrow.textContent = "сервер";
+    systemNoticeState.title.textContent = systemNoticeTitle(text);
+    systemNoticeState.text.textContent = text;
+    if (systemNoticeState.reloadBtn) {
+      systemNoticeState.reloadBtn.hidden = !shouldOfferReload(text);
+    }
+    systemNoticeState.modal.hidden = false;
+  }
+
+  function hideSystemNotice() {
+    if (!systemNoticeState.modal) cacheSystemNoticeElements();
+    if (systemNoticeState.modal) systemNoticeState.modal.hidden = true;
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    cacheSystemNoticeElements();
+    if (systemNoticeState.closeBtn) systemNoticeState.closeBtn.addEventListener("click", hideSystemNotice);
+    if (systemNoticeState.reloadBtn) {
+      systemNoticeState.reloadBtn.addEventListener("click", () => window.location.reload());
+    }
+  });
+
+  window.TenderBombNotice = {
+    show: showSystemNotice,
+    hide: hideSystemNotice,
+  };
+})();
+
 const MODES = {
   express: {
     label: "Экспресс",
@@ -627,6 +695,7 @@ function applyServerNotice(data) {
   if (notice && notice !== multiplayer.serverNotice) {
     multiplayer.serverNotice = notice;
     addLog("Сервер", notice, "warn");
+    window.TenderBombNotice?.show(notice);
   } else if (!notice) {
     multiplayer.serverNotice = "";
   }
@@ -636,6 +705,7 @@ function notifyServerOffline() {
   if (multiplayer.serverNotice === SERVER_OFFLINE_MESSAGE) return;
   multiplayer.serverNotice = SERVER_OFFLINE_MESSAGE;
   addLog("Сервер", SERVER_OFFLINE_MESSAGE, "warn");
+  window.TenderBombNotice?.show(SERVER_OFFLINE_MESSAGE);
 }
 
 async function apiGet(url) {

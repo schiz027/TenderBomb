@@ -261,6 +261,7 @@
       checkersState.serverNotice = SERVER_OFFLINE_MESSAGE;
       checkersState.joined = false;
       stopCheckersPolling();
+      window.TenderBombNotice?.show(SERVER_OFFLINE_MESSAGE);
       renderCheckers();
     }
   }
@@ -293,6 +294,7 @@
     if (notice && notice !== checkersState.serverNotice) {
       checkersState.serverNotice = notice;
       checkersState.error = notice;
+      window.TenderBombNotice?.show(notice);
     } else if (!notice && checkersState.serverNotice) {
       checkersState.serverNotice = "";
     }

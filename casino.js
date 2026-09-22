@@ -3,10 +3,26 @@
   const LEADERBOARD_CACHE_KEY = "tenderBombCasinoLeaderboard";
   const POLL_MS = 5000;
   const SPIN_DELAY_MS = 520;
-  const BETS = [10, 25, 50, 100, 250];
+  const BETS = [10, 25, 50, 100, 250, 500, 1000];
   const DEFAULT_MIN_BET = 1;
   const DEFAULT_MAX_BET = 10000;
-  const SYMBOLS = ["🍒", "🍋", "🍇", "🔔", "⭐", "💎"];
+  const DEFAULT_PAYOUTS = [
+    { symbol: "document", label: "Документы", asset: "assets/casino-symbol-document.png", two: 1, three: 5, jackpot: false },
+    { symbol: "seal", label: "Печать", asset: "assets/casino-symbol-seal.png", two: 1, three: 6, jackpot: false },
+    { symbol: "supply", label: "Поставка", asset: "assets/casino-symbol-supply.png", two: 2, three: 8, jackpot: false },
+    { symbol: "fas", label: "ФАС", asset: "assets/casino-symbol-fas.png", two: 2, three: 12, jackpot: false },
+    { symbol: "goszakaz", label: "Госзаказ", asset: "assets/casino-symbol-goszakaz.png", two: 3, three: 18, jackpot: false },
+    { symbol: "tenderbomb", label: "TenderBomb", asset: "assets/casino-symbol-tenderbomb.png", two: 5, three: 35, jackpot: true },
+  ];
+  const LEGACY_SYMBOLS = [
+    { symbol: "🍒", label: "Документы", asset: "assets/casino-symbol-document.png" },
+    { symbol: "🍋", label: "Печать", asset: "assets/casino-symbol-seal.png" },
+    { symbol: "🍇", label: "Поставка", asset: "assets/casino-symbol-supply.png" },
+    { symbol: "🔔", label: "ФАС", asset: "assets/casino-symbol-fas.png" },
+    { symbol: "⭐", label: "Госзаказ", asset: "assets/casino-symbol-goszakaz.png" },
+    { symbol: "💎", label: "TenderBomb", asset: "assets/casino-symbol-tenderbomb.png" },
+  ];
+  const SYMBOLS = DEFAULT_PAYOUTS.map((item) => item.symbol);
   const NAME_REQUIRED_MESSAGE = "Введите никнейм и сохраните!";
   const NAME_TAKEN_MESSAGE = "Этот ник уже занят другим игроком.";
   const SERVER_OFFLINE_MESSAGE = "Сервер был отключен.";
@@ -30,8 +46,15 @@
     bet: 25,
     minBet: DEFAULT_MIN_BET,
     maxBet: DEFAULT_MAX_BET,
+    jackpot: 0,
+    jackpotSymbol: "tenderbomb",
+    payoutRules: DEFAULT_PAYOUTS,
+    bigWins: [],
     lastPayout: 0,
-    reels: ["🍒", "🍋", "🔔"],
+    resultTone: "",
+    topReels: ["goszakaz", "document", "supply"],
+    reels: ["document", "seal", "fas"],
+    bottomReels: ["seal", "tenderbomb", "fas"],
     spinText: "Готово к крутке",
     spinning: false,
   };
@@ -62,7 +85,13 @@
     casinoEls.creditsStat = document.querySelector("#casinoCreditsStat");
     casinoEls.betStat = document.querySelector("#casinoBetStat");
     casinoEls.payoutStat = document.querySelector("#casinoPayoutStat");
+    casinoEls.jackpot = document.querySelector("#casinoJackpot");
+    casinoEls.jackpotHint = document.querySelector("#casinoJackpotHint");
+    casinoEls.payoutTable = document.querySelector("#casinoPayoutTable");
+    casinoEls.slotMachine = document.querySelector("#casinoSlotMachine");
+    casinoEls.topReels = document.querySelector("#casinoTopReels");
     casinoEls.reels = document.querySelector("#casinoReels");
+    casinoEls.bottomReels = document.querySelector("#casinoBottomReels");
     casinoEls.spinResult = document.querySelector("#casinoSpinResult");
     casinoEls.betButtons = Array.from(document.querySelectorAll("[data-casino-bet]"));
     casinoEls.customBet = document.querySelector("#casinoCustomBet");
@@ -71,6 +100,8 @@
     casinoEls.leaderboardCount = document.querySelector("#casinoLeaderboardCount");
     casinoEls.logTitle = document.querySelector("#casinoLogTitle");
     casinoEls.log = document.querySelector("#casinoLog");
+    casinoEls.bigWins = document.querySelector("#casinoBigWins");
+    casinoEls.bigWinsBadge = document.querySelector("#casinoBigWinsBadge");
   }
 
   function bindCasinoControls() {
@@ -313,17 +344,25 @@
   function handleCasinoSpinResult(result) {
     if (!result || result.ok === false) {
       casinoState.lastPayout = 0;
+      casinoState.resultTone = "loss";
       casinoState.spinText = casinoErrorMessage(result?.reason || result?.error);
       return;
     }
     casinoState.reels = Array.isArray(result.symbols) ? result.symbols.slice(0, 3) : casinoState.reels;
     casinoState.lastPayout = Math.max(0, Number(result.payout) || 0);
     const net = Number(result.net) || 0;
-    if (net > 0) {
+    const jackpotHit = Boolean(result.jackpot_hit);
+    if (jackpotHit) {
+      casinoState.resultTone = "jackpot";
+      casinoState.spinText = `Джекпот! +${formatCredits(net)}`;
+    } else if (net > 0) {
+      casinoState.resultTone = "win";
       casinoState.spinText = `Выигрыш +${formatCredits(net)}`;
     } else if (net === 0) {
+      casinoState.resultTone = "push";
       casinoState.spinText = "Ставка вернулась";
     } else {
+      casinoState.resultTone = "loss";
       casinoState.spinText = `Минус ${formatCredits(Math.abs(net))}`;
     }
   }
@@ -352,6 +391,10 @@
     casinoState.pushes = Math.max(0, Number(data?.pushes) || 0);
     casinoState.minBet = Math.max(1, Number(data?.min_bet) || DEFAULT_MIN_BET);
     casinoState.maxBet = Math.max(casinoState.minBet, Number(data?.max_bet) || DEFAULT_MAX_BET);
+    casinoState.jackpot = Math.max(0, Number(data?.jackpot) || 0);
+    casinoState.jackpotSymbol = String(data?.jackpot_symbol || casinoState.jackpotSymbol || "tenderbomb");
+    casinoState.payoutRules = normalizeCasinoPayouts(data?.payouts);
+    casinoState.bigWins = normalizeCasinoBigWins(data?.big_wins);
     casinoState.history = normalizeCasinoHistory(data?.history);
     casinoState.leaderboard = normalizeCasinoRows(data?.leaderboard);
     normalizeCasinoBet();
@@ -363,6 +406,7 @@
     if (notice && notice !== casinoState.serverNotice) {
       casinoState.serverNotice = notice;
       casinoState.spinText = notice;
+      window.TenderBombNotice?.show(notice);
     } else if (!notice) {
       casinoState.serverNotice = "";
     }
@@ -372,6 +416,7 @@
     if (casinoState.serverNotice === SERVER_OFFLINE_MESSAGE) return;
     casinoState.serverNotice = SERVER_OFFLINE_MESSAGE;
     casinoState.spinText = SERVER_OFFLINE_MESSAGE;
+    window.TenderBombNotice?.show(SERVER_OFFLINE_MESSAGE);
   }
 
   function normalizeCasinoBet() {
@@ -388,9 +433,12 @@
   function startSpinAnimation() {
     stopSpinAnimation();
     casinoState.spinning = true;
+    casinoState.resultTone = "";
     casinoState.spinText = "Крутим...";
     casinoState.spinInterval = window.setInterval(() => {
+      casinoState.topReels = Array.from({ length: 3 }, randomCasinoSymbol);
       casinoState.reels = Array.from({ length: 3 }, randomCasinoSymbol);
+      casinoState.bottomReels = Array.from({ length: 3 }, randomCasinoSymbol);
       renderCasinoReels();
     }, 75);
   }
@@ -403,6 +451,8 @@
     casinoState.spinning = false;
     if (Array.isArray(finalReels) && finalReels.length) {
       casinoState.reels = finalReels.slice(0, 3);
+      casinoState.topReels = Array.from({ length: 3 }, randomCasinoSymbol);
+      casinoState.bottomReels = Array.from({ length: 3 }, randomCasinoSymbol);
     }
     renderCasinoReels();
   }
@@ -470,6 +520,7 @@
   function loadOfflineCasinoLeaderboard() {
     const cached = readCachedCasinoLeaderboard();
     if (cached) casinoState.leaderboard = cached;
+    applyOfflineCasinoMeta(window.TENDERBOMB_RECORDS?.casino);
 
     const seeded = recordsToCasinoLeaderboard(window.TENDERBOMB_RECORDS?.records?.casino);
     if (seeded) {
@@ -481,13 +532,20 @@
     fetch("leaderboard-records.json", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
+        applyOfflineCasinoMeta(data?.casino);
         const rows = recordsToCasinoLeaderboard(data?.records?.casino);
         if (!rows) return;
         casinoState.leaderboard = rows;
         cacheCasinoLeaderboard();
-        renderCasinoLeaderboard();
+        renderCasinoStatic();
       })
       .catch(() => {});
+  }
+
+  function applyOfflineCasinoMeta(meta) {
+    if (!meta || typeof meta !== "object") return;
+    casinoState.jackpot = Math.max(0, Number(meta.jackpot) || casinoState.jackpot);
+    casinoState.bigWins = normalizeCasinoBigWins(meta.big_wins);
   }
 
   function recordsToCasinoLeaderboard(records) {
@@ -522,9 +580,73 @@
         payout: Math.max(0, Number(item.payout) || 0),
         net: Number(item.net) || 0,
         credits: Math.max(0, Number(item.credits) || 0),
+        jackpot: Math.max(0, Number(item.jackpot) || 0),
+        jackpotContribution: Math.max(0, Number(item.jackpot_contribution) || 0),
+        jackpotWin: Math.max(0, Number(item.jackpot_win) || 0),
+        jackpotHit: Boolean(item.jackpot_hit),
         created_at: Number(item.created_at) || 0,
       }))
       .slice(0, 12);
+  }
+
+  function normalizeCasinoPayouts(items) {
+    const source = Array.isArray(items) && items.length ? items : DEFAULT_PAYOUTS;
+    return source
+      .filter((item) => item && typeof item === "object")
+      .map((item) => ({
+        symbol: String(item.symbol || "").slice(0, 32),
+        label: String(item.label || "").slice(0, 32),
+        asset: String(item.asset || "").slice(0, 128),
+        two: Math.max(0, Number(item.two) || 0),
+        three: Math.max(0, Number(item.three) || 0),
+        jackpot: Boolean(item.jackpot),
+      }))
+      .filter((item) => item.symbol)
+      .slice(0, 8);
+  }
+
+  function normalizeCasinoBigWins(items) {
+    if (!Array.isArray(items)) return [];
+    return items
+      .filter((item) => item && typeof item === "object")
+      .map((item) => ({
+        player: cleanCasinoName(item.player),
+        symbols: Array.isArray(item.symbols) ? item.symbols.slice(0, 3).map((symbol) => String(symbol)) : [],
+        bet: Math.max(0, Number(item.bet) || 0),
+        payout: Math.max(0, Number(item.payout) || 0),
+        net: Math.max(0, Number(item.net) || 0),
+        jackpot: Math.max(0, Number(item.jackpot) || 0),
+        jackpotHit: Boolean(item.jackpot_hit),
+        created_at: Number(item.created_at) || 0,
+      }))
+      .filter((item) => item.player && item.net > 0)
+      .slice(0, 10);
+  }
+
+  function casinoSymbolMeta(symbol) {
+    const value = String(symbol || "");
+    return (
+      casinoState.payoutRules.find((item) => item.symbol === value) ||
+      DEFAULT_PAYOUTS.find((item) => item.symbol === value) ||
+      LEGACY_SYMBOLS.find((item) => item.symbol === value) ||
+      { symbol: value, label: value || "?", asset: "" }
+    );
+  }
+
+  function casinoSymbolLabel(symbol) {
+    return casinoSymbolMeta(symbol).label || String(symbol || "?");
+  }
+
+  function casinoSymbolImage(symbol, alt = "") {
+    const meta = casinoSymbolMeta(symbol);
+    if (meta.asset) {
+      return `<img class="casino-symbol-img" src="${escapeCasinoHtml(meta.asset)}" alt="${escapeCasinoHtml(alt || meta.label)}">`;
+    }
+    return escapeCasinoHtml(meta.label || meta.symbol || "?");
+  }
+
+  function casinoSymbolText(symbols) {
+    return symbols.length ? symbols.map(casinoSymbolLabel).join(" · ") : "???";
   }
 
   function isPublicCasinoOwner(item) {
@@ -552,9 +674,11 @@
   function renderCasinoStatic() {
     renderCasinoStatus();
     renderCasinoStats();
+    renderCasinoPayouts();
     renderCasinoReels();
     renderCasinoBets();
     renderCasinoLeaderboard();
+    renderCasinoBigWins();
     renderCasinoLog();
   }
 
@@ -585,20 +709,66 @@
 
   function renderCasinoStats() {
     const credits = casinoState.credits === null ? "-" : formatCredits(casinoState.credits);
-    casinoEls.credits.textContent = credits;
-    casinoEls.creditsStat.textContent = credits;
-    casinoEls.betStat.textContent = formatCredits(casinoState.bet);
-    casinoEls.payoutStat.textContent = formatCredits(casinoState.lastPayout);
-    casinoEls.spinResult.textContent = casinoState.spinText;
+    if (casinoEls.credits) casinoEls.credits.textContent = credits;
+    if (casinoEls.creditsStat) casinoEls.creditsStat.textContent = credits;
+    if (casinoEls.betStat) casinoEls.betStat.textContent = formatCredits(casinoState.bet);
+    if (casinoEls.payoutStat) casinoEls.payoutStat.textContent = formatCredits(casinoState.lastPayout);
+    if (casinoEls.jackpot) casinoEls.jackpot.textContent = formatCredits(casinoState.jackpot);
+    if (casinoEls.jackpotHint) casinoEls.jackpotHint.textContent = `${casinoSymbolLabel(casinoState.jackpotSymbol)} x3 забирает банк`;
+    if (casinoEls.spinResult) casinoEls.spinResult.textContent = casinoState.spinText;
+  }
+
+  function renderCasinoPayouts() {
+    if (!casinoEls.payoutTable) return;
+    casinoEls.payoutTable.innerHTML = casinoState.payoutRules.length
+      ? casinoState.payoutRules.map(casinoPayoutRow).join("")
+      : '<div class="casino-payout-row"><span class="casino-payout-symbol">?</span><span class="casino-payout-copy"><span>Нет выплат</span><small>Сервер не отдал таблицу</small></span></div>';
+  }
+
+  function casinoPayoutRow(item) {
+    const jackpotText = item.jackpot ? " + банк" : "";
+    const label = item.label || casinoSymbolLabel(item.symbol);
+    return `<div class="casino-payout-row${item.jackpot ? " is-jackpot" : ""}">
+      <span class="casino-payout-symbol">${casinoSymbolImage(item.symbol, label)}</span>
+      <span class="casino-payout-copy">
+        <span>${escapeCasinoHtml(label)}</span>
+        <small>3 = x${formatCredits(item.three)}${escapeCasinoHtml(jackpotText)}</small>
+        <small>2 = x${formatCredits(item.two)}</small>
+      </span>
+    </div>`;
   }
 
   function renderCasinoReels() {
-    if (!casinoEls.reels) return;
-    casinoEls.reels.classList.toggle("is-spinning", casinoState.spinning);
-    casinoEls.reels.innerHTML = casinoState.reels
+    renderCasinoReelLine(casinoEls.topReels, casinoState.topReels, true);
+    renderCasinoReelLine(casinoEls.reels, casinoState.reels, false);
+    renderCasinoReelLine(casinoEls.bottomReels, casinoState.bottomReels, true);
+    if (casinoEls.slotMachine) {
+      casinoEls.slotMachine.classList.toggle("is-jackpot", !casinoState.spinning && casinoState.resultTone === "jackpot");
+      casinoEls.slotMachine.classList.toggle("is-win", !casinoState.spinning && casinoState.resultTone === "win");
+    }
+    if (casinoEls.spinBtn) {
+      casinoEls.spinBtn.classList.toggle("is-pulling", casinoState.spinning);
+    }
+  }
+
+  function renderCasinoReelLine(element, reels, muted) {
+    if (!element) return;
+    element.classList.toggle("is-spinning", casinoState.spinning);
+    element.classList.toggle("is-win", !muted && !casinoState.spinning && casinoState.resultTone === "win");
+    element.classList.toggle("is-jackpot", !muted && !casinoState.spinning && casinoState.resultTone === "jackpot");
+    element.classList.toggle("is-loss", !muted && !casinoState.spinning && casinoState.resultTone === "loss");
+    const reelsHtml = reels
       .slice(0, 3)
-      .map((symbol) => `<span class="casino-reel">${escapeCasinoHtml(symbol)}</span>`)
+      .map((symbol) => casinoReelHtml(symbol, muted))
       .join("");
+    if (element.innerHTML !== reelsHtml) {
+      element.innerHTML = reelsHtml;
+    }
+  }
+
+  function casinoReelHtml(symbol, muted = false) {
+    const label = muted ? "" : casinoSymbolLabel(symbol);
+    return `<span class="casino-reel">${casinoSymbolImage(symbol, label)}</span>`;
   }
 
   function renderCasinoBets() {
@@ -667,6 +837,25 @@
     return `<span class="leaderboard-rank">${rank}</span>`;
   }
 
+  function renderCasinoBigWins() {
+    if (!casinoEls.bigWins) return;
+    if (casinoEls.bigWinsBadge) casinoEls.bigWinsBadge.textContent = String(casinoState.bigWins.length);
+    casinoEls.bigWins.innerHTML = casinoState.bigWins.length
+      ? casinoState.bigWins.map(casinoBigWinRow).join("")
+      : '<li class="tone-info">Крупных выигрышей пока нет.</li>';
+  }
+
+  function casinoBigWinRow(item) {
+    const symbols = casinoSymbolText(item.symbols);
+    const title = item.jackpotHit ? `${item.player}: джекпот +${formatCredits(item.net)}` : `${item.player}: +${formatCredits(item.net)}`;
+    const jackpot = item.jackpot ? ` · джекпот ${formatCredits(item.jackpot)}` : "";
+    const meta = `${symbols} · ставка ${formatCredits(item.bet)} · выплата ${formatCredits(item.payout)}${jackpot}`;
+    return `<li class="tone-good${item.jackpotHit ? " is-jackpot" : ""}">
+      <strong>${escapeCasinoHtml(title)}</strong>
+      <span class="casino-log-meta">${escapeCasinoHtml(meta)}</span>
+    </li>`;
+  }
+
   function renderCasinoLog() {
     if (!casinoEls.log) return;
     casinoEls.logTitle.textContent = casinoState.spinning ? "Крутка" : "Крутки";
@@ -676,11 +865,18 @@
   }
 
   function casinoLogRow(item) {
-    const tone = item.net > 0 ? "good" : item.net < 0 ? "bad" : "warn";
-    const title = item.net > 0 ? `Выигрыш +${formatCredits(item.net)}` : item.net < 0 ? `Проигрыш ${formatCredits(Math.abs(item.net))}` : "Возврат ставки";
-    const symbols = item.symbols.length ? item.symbols.join(" ") : "???";
-    const meta = `${symbols} · ставка ${formatCredits(item.bet)} · выплата ${formatCredits(item.payout)} · баланс ${formatCredits(item.credits)}`;
-    return `<li class="tone-${tone}"><strong>${escapeCasinoHtml(title)}</strong><span class="casino-log-meta">${escapeCasinoHtml(meta)}</span></li>`;
+    const tone = item.jackpotHit || item.net > 0 ? "good" : item.net < 0 ? "bad" : "warn";
+    const title = item.jackpotHit
+      ? `Джекпот +${formatCredits(item.net)}`
+      : item.net > 0
+        ? `Выигрыш +${formatCredits(item.net)}`
+        : item.net < 0
+          ? `Проигрыш ${formatCredits(Math.abs(item.net))}`
+          : "Возврат ставки";
+    const symbols = casinoSymbolText(item.symbols);
+    const jackpot = item.jackpotWin ? ` · джекпот ${formatCredits(item.jackpotWin)}` : "";
+    const meta = `${symbols} · ставка ${formatCredits(item.bet)} · выплата ${formatCredits(item.payout)} · баланс ${formatCredits(item.credits)}${jackpot}`;
+    return `<li class="tone-${tone}${item.jackpotHit ? " is-jackpot" : ""}"><strong>${escapeCasinoHtml(title)}</strong><span class="casino-log-meta">${escapeCasinoHtml(meta)}</span></li>`;
   }
 
   function formatCredits(value) {
