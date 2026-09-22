@@ -142,6 +142,15 @@
       </main>
 
       <main class="casino-screen" id="casinoView" aria-label="Казино" hidden>
+        <aside class="casino-game-rail" aria-label="Меню игр казино">
+          <p class="eyebrow">зал</p>
+          <div class="casino-game-switch casino-game-switch-rail" role="tablist" aria-label="Игры казино">
+            <button class="mode-button is-active" type="button" data-casino-game="slots">Слоты</button>
+            <button class="mode-button" type="button" disabled title="В разработке">Скоро</button>
+            <button class="mode-button" type="button" disabled title="В разработке">Скоро</button>
+          </div>
+        </aside>
+
         <aside class="casino-panel casino-lobby" aria-label="Касса казино">
           <div class="panel-header">
             <div>
@@ -162,17 +171,6 @@
             <span>Кредиты</span>
             <strong id="casinoCredits">0</strong>
           </div>
-          <section class="casino-game-panel" aria-label="Выбор игры казино">
-            <div>
-              <p class="eyebrow">зал</p>
-              <h3>Игры казино</h3>
-            </div>
-            <div class="casino-game-switch casino-game-switch-panel" role="tablist" aria-label="Игры казино">
-              <button class="mode-button is-active" type="button" data-casino-game="slots">Слоты</button>
-              <button class="mode-button" type="button" disabled>В разработке</button>
-              <button class="mode-button" type="button" disabled>В разработке</button>
-            </div>
-          </section>
           <div class="panel-header">
             <div>
               <p class="eyebrow">банк</p>

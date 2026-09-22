@@ -1224,7 +1224,7 @@ h2 {
 }
 
 .casino-screen {
-  grid-template-columns: minmax(230px, 280px) minmax(820px, 900px) minmax(240px, 300px);
+  grid-template-columns: 70px minmax(230px, 280px) minmax(820px, 900px) minmax(240px, 300px);
 }
 
 .tanks-screen {
@@ -1269,6 +1269,7 @@ h2 {
 }
 
 .casino-panel,
+.casino-game-rail,
 .casino-board-area,
 .checkers-panel,
 .checkers-board-area,
@@ -2014,6 +2015,18 @@ button.checker-cell {
   min-width: 0;
 }
 
+.casino-game-rail {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 6px;
+}
+
+.casino-game-rail .eyebrow {
+  text-align: center;
+}
+
 .casino-board-area {
   --control-width: 820px;
   max-width: 900px;
@@ -2046,21 +2059,6 @@ button.checker-cell {
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.casino-game-panel {
-  display: grid;
-  gap: 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 10px;
-  background: var(--surface);
-}
-
-.casino-game-switch-panel {
-  grid-template-columns: 1fr;
-  width: 100%;
-  margin: 0;
 }
 
 .casino-stats-row {
@@ -2131,10 +2129,19 @@ button.checker-cell {
   background: var(--surface-strong);
 }
 
-.casino-game-panel .casino-game-switch {
+.casino-game-switch-rail {
   grid-template-columns: 1fr;
   width: 100%;
   margin: 0;
+}
+
+.casino-game-switch-rail .mode-button {
+  min-height: 70px;
+  padding: 8px 2px;
+  font-size: 0.72rem;
+  line-height: 1.05;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .casino-payout-panel {
@@ -2771,7 +2778,7 @@ button.checker-cell {
   }
 
   .casino-screen {
-    grid-template-columns: minmax(220px, 280px) minmax(0, 900px);
+    grid-template-columns: 64px minmax(220px, 280px) minmax(0, 900px);
   }
 
   .side-surface,
@@ -2806,17 +2813,41 @@ button.checker-cell {
     grid-template-columns: 1fr;
   }
 
-  .casino-board-area {
+  .casino-game-rail {
     order: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .casino-game-rail .eyebrow {
+    flex: 0 0 auto;
+    margin: 0;
+  }
+
+  .casino-game-switch-rail {
+    flex: 1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .casino-game-switch-rail .mode-button {
+    min-height: 42px;
+    font-size: 0.86rem;
+    white-space: nowrap;
+  }
+
+  .casino-board-area {
+    order: 2;
   }
 
   .casino-lobby {
-    order: 2;
+    order: 3;
     min-height: 0;
   }
 
   .casino-log-panel {
-    order: 3;
+    order: 4;
   }
 
   .game-surface,
@@ -2975,6 +3006,19 @@ button.checker-cell {
   .casino-game-switch,
   .tanks-stats-row {
     grid-template-columns: 1fr;
+  }
+
+  .casino-game-rail {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .casino-game-rail .eyebrow {
+    text-align: left;
+  }
+
+  .casino-game-switch-rail .mode-button {
+    white-space: normal;
   }
 
   .casino-payout-table {

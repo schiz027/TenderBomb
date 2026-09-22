@@ -19,3 +19,9 @@ __pycache__/
 *.tmp
 *.bak
 *.pid
+
+# Generated release archives
+dist/
+
+package-release.bat
+package-release.ps1
