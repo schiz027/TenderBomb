@@ -70,6 +70,39 @@ TenderBomb — это не одна игра, а небольшая **локал
 
 ---
 
+## 📸 Скриншоты
+
+Ниже — как TenderBomb выглядит вживую: основной тендерный режим, шашки, танчики и казино.
+
+<div align="center">
+
+### 💣 TenderBomb
+
+<img src="assets/screenshots/tenderbomb-gameplay.webp" alt="TenderBomb — основной игровой режим" width="88%">
+
+<sub>Тендерный сапёр: поле аукциона, Жалоба ФАС, Выписка РФ, оперативная лента и переключение тем интерфейса.</sub>
+
+<br><br>
+
+### ♟️ Шашки &nbsp;&nbsp; / &nbsp;&nbsp; 🪖 Танчики
+
+<img src="assets/screenshots/checkers.webp" alt="TenderBomb — шашки" width="49%">
+<img src="assets/screenshots/tanks.webp" alt="TenderBomb — танчики" width="49%">
+
+<sub>Шашки против бота / PvP и отдельный аркадный режим с танками, волнами противников и прогрессией.</sub>
+
+<br><br>
+
+### 🎰 Большое казино
+
+<img src="assets/screenshots/casino.webp" alt="TenderBomb — большое казино" width="88%">
+
+<sub>Слоты с тематическими символами TenderBomb, ставками, джекпотом, историей круток и крупными выигрышами.</sub>
+
+</div>
+
+---
+
 ## 🚀 Быстрый запуск
 
 ### Вариант 1 — обычный запуск Windows
