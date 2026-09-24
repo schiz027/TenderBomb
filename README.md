@@ -72,34 +72,30 @@ TenderBomb — это не одна игра, а небольшая **локал
 
 ## 📸 Скриншоты
 
-Ниже — как TenderBomb выглядит вживую: основной тендерный режим, шашки, танчики и казино.
+### TenderBomb / основной режим
 
-<div align="center">
+<p align="center">
+  <img src="assets/screenshots/tenderbomb-gameplay.png" alt="TenderBomb — основной игровой режим" width="100%">
+</p>
 
-### 💣 TenderBomb
+Тематический сапёр в стиле тендерного безумия: уровни сложности, жалоба в ФАС, выписка РФ, лента событий и общая атмосфера «закрывашек».
 
-<img src="assets/screenshots/tenderbomb-gameplay.webp" alt="TenderBomb — основной игровой режим" width="88%">
+---
 
-<sub>Тендерный сапёр: поле аукциона, Жалоба ФАС, Выписка РФ, оперативная лента и переключение тем интерфейса.</sub>
+### Другие режимы
 
-<br><br>
+<p align="center">
+  <img src="assets/screenshots/checkers-mode.png" alt="TenderBomb — режим Шашки" width="49%">
+  <img src="assets/screenshots/tanks-mode.png" alt="TenderBomb — режим Танчики" width="49%">
+</p>
 
-### ♟️ Шашки &nbsp;&nbsp; / &nbsp;&nbsp; 🪖 Танчики
+<p align="center">
+  <img src="assets/screenshots/casino-mode.png" alt="TenderBomb — режим Казино" width="100%">
+</p>
 
-<img src="assets/screenshots/checkers.webp" alt="TenderBomb — шашки" width="49%">
-<img src="assets/screenshots/tanks.webp" alt="TenderBomb — танчики" width="49%">
-
-<sub>Шашки против бота / PvP и отдельный аркадный режим с танками, волнами противников и прогрессией.</sub>
-
-<br><br>
-
-### 🎰 Большое казино
-
-<img src="assets/screenshots/casino.webp" alt="TenderBomb — большое казино" width="88%">
-
-<sub>Слоты с тематическими символами TenderBomb, ставками, джекпотом, историей круток и крупными выигрышами.</sub>
-
-</div>
+- **Шашки** — отдельный режим с аккуратным интерфейсом, ходами и игрой против бота или другого игрока.
+- **Танчики** — мини-игра в аркадном стиле с уровнями, очками, волнами врагов и простым управлением.
+- **Casino** — полноценный слот-режим со ставками, джекпотом, тематическими символами TenderBomb и историей крупных выигрышей.
 
 ---
 
