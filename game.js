@@ -1,4 +1,7 @@
 (() => {
+  const RESTART_NOTICE_ACK_KEY = "tenderBombRestartNoticeAcknowledgedUntil";
+  const RESTART_NOTICE_ACK_MS = 180_000;
+
   const systemNoticeState = {
     modal: null,
     eyebrow: null,
@@ -30,9 +33,32 @@
     return text.includes("перезап");
   }
 
+  function restartNoticeAcknowledged() {
+    try {
+      const acknowledgedUntil = Number(window.sessionStorage.getItem(RESTART_NOTICE_ACK_KEY)) || 0;
+      if (acknowledgedUntil > Date.now()) return true;
+      window.sessionStorage.removeItem(RESTART_NOTICE_ACK_KEY);
+    } catch (error) {
+      return false;
+    }
+    return false;
+  }
+
+  function acknowledgeRestartNotice() {
+    try {
+      window.sessionStorage.setItem(RESTART_NOTICE_ACK_KEY, String(Date.now() + RESTART_NOTICE_ACK_MS));
+    } catch (error) {}
+  }
+
   function showSystemNotice(message) {
     const text = String(message || "").trim();
     if (!text) return;
+    const reloadOffered = shouldOfferReload(text);
+    if (reloadOffered && restartNoticeAcknowledged()) {
+      hideSystemNotice();
+      systemNoticeState.lastMessage = text;
+      return;
+    }
     if (!systemNoticeState.modal) cacheSystemNoticeElements();
     if (!systemNoticeState.modal || !systemNoticeState.title || !systemNoticeState.text) return;
     if (systemNoticeState.lastMessage === text && !systemNoticeState.modal.hidden) return;
@@ -42,7 +68,10 @@
     systemNoticeState.title.textContent = systemNoticeTitle(text);
     systemNoticeState.text.textContent = text;
     if (systemNoticeState.reloadBtn) {
-      systemNoticeState.reloadBtn.hidden = !shouldOfferReload(text);
+      systemNoticeState.reloadBtn.hidden = !reloadOffered;
+    }
+    if (systemNoticeState.closeBtn) {
+      systemNoticeState.closeBtn.hidden = reloadOffered;
     }
     systemNoticeState.modal.hidden = false;
   }
@@ -56,7 +85,10 @@
     cacheSystemNoticeElements();
     if (systemNoticeState.closeBtn) systemNoticeState.closeBtn.addEventListener("click", hideSystemNotice);
     if (systemNoticeState.reloadBtn) {
-      systemNoticeState.reloadBtn.addEventListener("click", () => window.location.reload());
+      systemNoticeState.reloadBtn.addEventListener("click", () => {
+        acknowledgeRestartNotice();
+        window.location.reload();
+      });
     }
   });
 
@@ -122,6 +154,9 @@ const RECORD_MIN_SECONDS = { express: 6, state: 18, registry: 45 };
 const NAME_REQUIRED_MESSAGE = "Введите никнейм и сохраните!";
 const NAME_TAKEN_MESSAGE = "Этот ник уже занят другим игроком.";
 const SERVER_OFFLINE_MESSAGE = "Сервер был отключен.";
+const SAVE_NAME_TEXT = "Сохранить";
+const SAVED_NAME_TEXT = "Никнейм сохранён";
+const SAVING_NAME_TEXT = "Сохраняем...";
 
 const els = {};
 
@@ -134,6 +169,7 @@ const multiplayer = {
   playerName: "",
   ip: "",
   nameError: "",
+  nameSaving: false,
   serverNotice: "",
 };
 
@@ -147,6 +183,9 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function cacheElements() {
+  els.brandHomeBtn = document.querySelector("#brandHomeBtn");
+  els.openSapperBtn = document.querySelector("#openSapperBtn");
+  els.gameLaunchButtons = Array.from(document.querySelectorAll("[data-launch-game]"));
   els.board = document.querySelector("#board");
   els.boardShell = document.querySelector(".board-shell");
   els.modeButtons = Array.from(document.querySelectorAll(".mode-button"));
@@ -182,6 +221,12 @@ function cacheElements() {
 
 function bindControls() {
   let highlightedNeighborElements = [];
+  if (els.brandHomeBtn) els.brandHomeBtn.addEventListener("click", openTenderBombHome);
+  if (els.openSapperBtn) els.openSapperBtn.addEventListener("click", openTenderBombHome);
+  window.addEventListener("tenderBombOpenCasino", () => setActiveLauncherGame("casino"));
+  window.addEventListener("tenderBombOpenCheckers", () => setActiveLauncherGame("checkers"));
+  window.addEventListener("tenderBombOpenTanks", () => setActiveLauncherGame("tanks"));
+  setActiveLauncherGame("sapper");
   els.newGameBtn.addEventListener("click", () => handleNewRound());
   els.modalNewGameBtn.addEventListener("click", () => handleNewRound());
   els.closeModalBtn.addEventListener("click", hideResult);
@@ -276,6 +321,26 @@ function bindControls() {
     event.preventDefault();
     const index = Number(button.dataset.index);
     toggleFlag(index);
+  });
+}
+
+function openTenderBombHome() {
+  window.dispatchEvent(new CustomEvent("tenderBombOpenHome"));
+  setActiveLauncherGame("sapper");
+  const tenderView = document.querySelector("#tenderBombView");
+  const casinoView = document.querySelector("#casinoView");
+  const checkersView = document.querySelector("#checkersView");
+  const tanksView = document.querySelector("#tanksView");
+  if (casinoView) casinoView.hidden = true;
+  if (checkersView) checkersView.hidden = true;
+  if (tanksView) tanksView.hidden = true;
+  if (tenderView) tenderView.hidden = false;
+}
+
+function setActiveLauncherGame(gameId) {
+  if (!els.gameLaunchButtons) return;
+  els.gameLaunchButtons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.launchGame === gameId);
   });
 }
 
@@ -725,41 +790,48 @@ async function apiPost(url, payload) {
 }
 
 async function savePlayerName() {
+  if (multiplayer.nameSaving) return false;
   const name = cleanPlayerName(els.playerName.value);
   if (!name) {
     showNameRequiredError();
     return false;
   }
-  // Dispatch event before making API calls to ensure UI consistency
-  window.dispatchEvent(new CustomEvent("tenderBombNameSaved", { detail: { name } }));
-  multiplayer.playerName = name;
-  multiplayer.nameError = "";
-  window.localStorage.setItem("tenderBombPlayerName", name);
-  els.playerName.value = name;
-  if (multiplayer.active) {
-    try {
-      const data = await apiPost("/api/profile", { player: name });
-      if (data.ok === false) {
-        showProfileError(data);
-        return false;
+  multiplayer.nameSaving = true;
+  renderMultiplayer();
+  try {
+    window.dispatchEvent(new CustomEvent("tenderBombNameSaved", { detail: { name } }));
+    multiplayer.playerName = name;
+    multiplayer.nameError = "";
+    window.localStorage.setItem("tenderBombPlayerName", name);
+    els.playerName.value = name;
+    if (multiplayer.active) {
+      try {
+        const data = await apiPost("/api/profile", { player: name });
+        if (data.ok === false) {
+          showProfileError(data);
+          return false;
+        }
+        multiplayer.ip = data.ip || multiplayer.ip;
+        if (data.player) {
+          multiplayer.playerName = data.player;
+          els.playerName.value = data.player;
+          window.localStorage.setItem("tenderBombPlayerName", data.player);
+        }
+        // Dispatch again with server-confirmed name if it changed
+        if (data.player && data.player !== name) window.dispatchEvent(new CustomEvent("tenderBombNameSaved", { detail: { name: data.player } }));
+        addLog("Ник сохранен", `Ник ${multiplayer.playerName} закреплен за этим локальным IP.`, "info");
+      } catch (error) {
+        addLog("Ник сохранен локально", "Сервер не ответил, но браузер запомнил ник.", "warn");
       }
-      multiplayer.ip = data.ip || multiplayer.ip;
-      if (data.player) {
-        multiplayer.playerName = data.player;
-        els.playerName.value = data.player;
-        window.localStorage.setItem("tenderBombPlayerName", data.player);
-      }
-      // Dispatch again with server-confirmed name if it changed
-      if (data.player && data.player !== name) window.dispatchEvent(new CustomEvent("tenderBombNameSaved", { detail: { name: data.player } }));
-      addLog("Ник сохранен", `Ник ${multiplayer.playerName} закреплен за этим локальным IP.`, "info");
-    } catch (error) {
-      addLog("Ник сохранен локально", "Сервер не ответил, но браузер запомнил ник.", "warn");
+    } else {
+      addLog("Ник сохранен", `Результаты будут записываться как ${name}.`, "info");
     }
-  } else {
-    addLog("Ник сохранен", `Результаты будут записываться как ${name}.`, "info");
+    render();
+    return true;
+  } finally {
+    multiplayer.nameSaving = false;
+    render();
   }
-  render();
-  return true;
 }
 
 function showProfileError(data) {
@@ -1392,8 +1464,13 @@ function renderMultiplayer() {
   const offlineRows = MODE_ORDER.reduce((total, modeId) => total + (multiplayer.leaderboards[modeId]?.length || 0), 0);
   const savedName = getSavedPlayerName();
   const currentName = cleanPlayerName(els.playerName.value);
+  const isSavedName = Boolean(currentName && currentName === savedName && !multiplayer.nameError);
   els.raceBadge.textContent = multiplayer.active ? "LAN" : "OFFLINE";
   els.playerName.classList.toggle("is-invalid", Boolean(multiplayer.nameError));
+  els.saveNameBtn.textContent = multiplayer.nameSaving ? SAVING_NAME_TEXT : isSavedName ? SAVED_NAME_TEXT : SAVE_NAME_TEXT;
+  els.saveNameBtn.disabled = multiplayer.nameSaving || isSavedName;
+  els.saveNameBtn.classList.toggle("is-saved", isSavedName && !multiplayer.nameSaving);
+  els.saveNameBtn.classList.toggle("is-dirty", Boolean(currentName && !isSavedName && !multiplayer.nameSaving));
   els.raceStatus.textContent = multiplayer.nameError
     ? multiplayer.nameError
     : !currentName

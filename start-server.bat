@@ -28,7 +28,7 @@ echo   god ^<nick^>   - toggle tank god mode for this nick
 echo   ungod ^<nick^> - disable tank god mode for this nick
 echo   stealth       - move server to tray mode
 echo   restart      - restart server and warn users
-echo   exit / quit  - stop server
+echo   exit / quit / stop - stop server
 echo Press Ctrl+C to stop the server.
 echo.
 

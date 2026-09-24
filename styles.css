@@ -324,7 +324,7 @@ button {
 
 .topbar {
   display: grid;
-  grid-template-columns: minmax(250px, 320px) minmax(820px, 900px) minmax(260px, 340px);
+  grid-template-columns: minmax(250px, 320px) minmax(720px, 760px) minmax(260px, 340px);
   align-items: center;
   justify-content: center;
   gap: 18px;
@@ -336,6 +336,19 @@ button {
   width: 100%;
   min-width: 0;
   justify-self: center;
+}
+
+.brand-button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.brand-button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--blue) 56%, transparent);
+  outline-offset: 4px;
+  border-radius: 8px;
 }
 
 .brand-logo {
@@ -392,56 +405,98 @@ h2 {
 
 .round-status {
   justify-self: center;
+  width: min(100%, 260px);
 }
 
 .game-launcher {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+  justify-content: flex-start;
+  gap: 12px;
   width: 100%;
+  min-width: 0;
+  justify-self: start;
+}
+
+.header-profile {
+  flex: 1 1 420px;
+  min-width: 330px;
+  max-width: 510px;
+  display: grid;
+  gap: 5px;
+}
+
+.header-profile-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) auto;
+  align-items: end;
+  gap: 8px;
   min-width: 0;
 }
 
-.ban-disclaimer {
-  max-width: 440px;
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 850;
-  line-height: 1.25;
-  text-align: left;
+.header-player-field {
+  min-width: 0;
 }
 
-.ban-disclaimer strong {
-  color: var(--red);
-  font-weight: 950;
+.header-player-field input {
+  min-height: 42px;
+  box-shadow: 0 8px 24px var(--control-shadow);
+}
+
+.profile-save-button {
+  min-width: 166px;
+  min-height: 42px;
+  padding-inline: 13px;
+  box-shadow: 0 8px 24px var(--control-shadow);
+  white-space: nowrap;
+}
+
+.profile-save-button.is-dirty {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--on-accent);
+}
+
+.profile-save-button.is-saved {
+  border-color: color-mix(in srgb, var(--green) 42%, var(--line));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--green-soft) 84%, var(--surface)), var(--surface));
+  color: var(--green);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--green) 10%, transparent);
+}
+
+.profile-save-button:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.header-profile-status {
+  max-width: 100%;
+  min-height: 18px;
+  overflow: hidden;
+  font-size: 0.76rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .launcher-actions {
   display: grid;
-  gap: 5px;
-  justify-items: end;
-  flex: 0 0 auto;
-  min-width: 0;
+  grid-template-columns: 1fr;
+  gap: 7px;
+  justify-items: stretch;
+  flex: 0 1 340px;
+  min-width: 270px;
 }
 
-.launcher-buttons {
-  display: flex;
+.launcher-row {
+  display: grid;
   align-items: center;
-  justify-content: flex-end;
   gap: 7px;
 }
 
-.launcher-credit-hint {
-  margin: 0;
-  color: var(--green);
-  font-size: 0.72rem;
-  font-weight: 950;
-  line-height: 1;
-  text-align: right;
-  text-transform: uppercase;
+.launcher-row-main {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .mini-game-button {
@@ -458,16 +513,17 @@ h2 {
   box-shadow: 0 8px 24px var(--control-shadow);
   cursor: pointer;
   font-weight: 900;
+  line-height: 1.1;
   white-space: nowrap;
 }
 
-.mini-game-button .launcher-tag {
-  border-radius: 999px;
-  padding: 2px 7px;
-  background: var(--blue);
-  color: var(--on-accent);
-  font-size: 0.72rem;
-  text-transform: uppercase;
+.mini-game-button.is-active {
+  border-color: var(--ink);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--ink) 12%, transparent),
+    0 8px 24px var(--control-shadow);
 }
 
 .casino-launch-button {
@@ -477,9 +533,11 @@ h2 {
   color: var(--on-accent);
 }
 
-.casino-launch-button .launcher-tag {
-  background: var(--on-accent);
-  color: var(--red-dark);
+.casino-launch-button.is-active {
+  border-color: color-mix(in srgb, var(--red-dark) 56%, var(--amber));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--red) 92%, var(--surface)), color-mix(in srgb, var(--amber) 94%, var(--surface)));
+  color: var(--on-accent);
 }
 
 .playfield {
@@ -1224,7 +1282,7 @@ h2 {
 }
 
 .casino-screen {
-  grid-template-columns: 70px minmax(230px, 280px) minmax(820px, 900px) minmax(240px, 300px);
+  grid-template-columns: minmax(220px, 280px) minmax(0, 900px) minmax(220px, 300px);
 }
 
 .tanks-screen {
@@ -1269,13 +1327,13 @@ h2 {
 }
 
 .casino-panel,
-.casino-game-rail,
 .casino-board-area,
 .checkers-panel,
 .checkers-board-area,
 .tanks-panel,
 .tanks-board-area {
   min-height: 0;
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface-subtle);
@@ -1474,15 +1532,6 @@ h2 {
 
 .checkers-clock.is-turn span {
   color: var(--green);
-}
-
-.checkers-back-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-height: 42px;
-  white-space: nowrap;
 }
 
 .checkers-side {
@@ -2015,18 +2064,6 @@ button.checker-cell {
   min-width: 0;
 }
 
-.casino-game-rail {
-  display: grid;
-  align-content: start;
-  gap: 10px;
-  min-width: 0;
-  padding: 12px 6px;
-}
-
-.casino-game-rail .eyebrow {
-  text-align: center;
-}
-
 .casino-board-area {
   --control-width: 820px;
   max-width: 900px;
@@ -2115,33 +2152,6 @@ button.checker-cell {
   font-size: 0.66rem;
   letter-spacing: 0;
   text-transform: uppercase;
-}
-
-.casino-game-switch {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
-  width: min(var(--control-width), 100%);
-  margin-inline: auto;
-  padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-strong);
-}
-
-.casino-game-switch-rail {
-  grid-template-columns: 1fr;
-  width: 100%;
-  margin: 0;
-}
-
-.casino-game-switch-rail .mode-button {
-  min-height: 70px;
-  padding: 8px 2px;
-  font-size: 0.72rem;
-  line-height: 1.05;
-  text-overflow: clip;
-  white-space: normal;
 }
 
 .casino-payout-panel {
@@ -2666,15 +2676,6 @@ button.checker-cell {
   font-size: 0.78rem;
 }
 
-.casino-back-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-height: 42px;
-  white-space: nowrap;
-}
-
 .result-modal {
   position: fixed;
   inset: 0;
@@ -2745,6 +2746,7 @@ button.checker-cell {
 
   .topbar {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
   }
 
@@ -2759,7 +2761,12 @@ button.checker-cell {
   }
 
   .game-launcher {
+    flex: 1 1 640px;
     width: auto;
+  }
+
+  .header-profile {
+    flex-basis: 360px;
   }
 
   .playfield,
@@ -2778,7 +2785,7 @@ button.checker-cell {
   }
 
   .casino-screen {
-    grid-template-columns: 64px minmax(220px, 280px) minmax(0, 900px);
+    grid-template-columns: minmax(220px, 280px) minmax(0, 900px);
   }
 
   .side-surface,
@@ -2802,10 +2809,6 @@ button.checker-cell {
     max-height: 280px;
   }
 
-  .ban-disclaimer {
-    max-width: min(280px, 28vw);
-    font-size: 0.74rem;
-  }
 }
 
 @media (max-width: 900px) {
@@ -2813,41 +2816,17 @@ button.checker-cell {
     grid-template-columns: 1fr;
   }
 
-  .casino-game-rail {
-    order: 1;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px;
-  }
-
-  .casino-game-rail .eyebrow {
-    flex: 0 0 auto;
-    margin: 0;
-  }
-
-  .casino-game-switch-rail {
-    flex: 1;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .casino-game-switch-rail .mode-button {
-    min-height: 42px;
-    font-size: 0.86rem;
-    white-space: nowrap;
-  }
-
   .casino-board-area {
-    order: 2;
+    order: 1;
   }
 
   .casino-lobby {
-    order: 3;
+    order: 2;
     min-height: 0;
   }
 
   .casino-log-panel {
-    order: 4;
+    order: 3;
   }
 
   .game-surface,
@@ -2864,7 +2843,6 @@ button.checker-cell {
   .progress-track,
   .casino-stats-row,
   .casino-payout-panel,
-  .casino-game-switch,
   .tanks-stats-row,
   .tanks-target-row {
     width: 100%;
@@ -2898,13 +2876,13 @@ button.checker-cell {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .launcher-buttons {
-    flex-wrap: wrap;
-    justify-content: flex-start;
+  .launcher-actions {
+    justify-items: stretch;
   }
 
-  .launcher-actions {
-    justify-items: start;
+  .header-profile {
+    min-width: min(100%, 330px);
+    max-width: none;
   }
 }
 
@@ -2929,18 +2907,13 @@ button.checker-cell {
     justify-content: flex-start;
   }
 
+  .header-profile {
+    flex: 1 1 100%;
+  }
+
   .launcher-actions {
     width: 100%;
-    justify-items: start;
-  }
-
-  .launcher-credit-hint {
-    text-align: left;
-  }
-
-  .ban-disclaimer {
-    max-width: none;
-    text-align: left;
+    justify-items: stretch;
   }
 
   .brand,
@@ -2996,6 +2969,7 @@ button.checker-cell {
 
   .round-status {
     max-width: none;
+    width: 100%;
   }
 
   .mode-switch,
@@ -3003,22 +2977,8 @@ button.checker-cell {
   .action-row,
   .casino-stats-row,
   .casino-payout-panel,
-  .casino-game-switch,
   .tanks-stats-row {
     grid-template-columns: 1fr;
-  }
-
-  .casino-game-rail {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .casino-game-rail .eyebrow {
-    text-align: left;
-  }
-
-  .casino-game-switch-rail .mode-button {
-    white-space: normal;
   }
 
   .casino-payout-table {

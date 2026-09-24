@@ -48,7 +48,7 @@
     checkersEls.tenderView = document.querySelector("#tenderBombView");
     checkersEls.view = document.querySelector("#checkersView");
     checkersEls.badge = document.querySelector("#checkersBadge");
-    checkersEls.name = document.querySelector("#checkersName");
+    checkersEls.name = document.querySelector("#playerName") || document.querySelector("#checkersName");
     checkersEls.saveNameBtn = document.querySelector("#saveCheckersNameBtn");
     checkersEls.botDifficulty = document.querySelector("#checkersBotDifficulty");
     checkersEls.botDifficultyValue = document.querySelector("#checkersBotDifficultyValue");
@@ -72,12 +72,15 @@
 
   function bindCheckersControls() {
     checkersEls.openBtn.addEventListener("click", openCheckers);
-    checkersEls.closeBtn.addEventListener("click", closeCheckers);
+    if (checkersEls.closeBtn) checkersEls.closeBtn.addEventListener("click", closeCheckers);
     checkersEls.singleplayerBtn.addEventListener("click", startSingleplayerCheckers);
     checkersEls.joinBtn.addEventListener("click", handleCheckersJoin);
     checkersEls.leaveBtn.addEventListener("click", () => leaveCheckers());
-    checkersEls.saveNameBtn.addEventListener("click", saveCheckersName);
+    if (checkersEls.saveNameBtn) checkersEls.saveNameBtn.addEventListener("click", saveCheckersName);
     checkersEls.botDifficulty.addEventListener("input", renderBotDifficulty);
+    window.addEventListener("tenderBombOpenHome", () => {
+      if (checkersState.isOpen) closeCheckers();
+    });
     window.addEventListener("tenderBombOpenTanks", hideCheckersForExternalGame);
     window.addEventListener("tenderBombOpenCasino", hideCheckersForExternalGame);
     window.addEventListener("tenderBombNameSaved", (event) => {
@@ -1093,10 +1096,16 @@
   }
 
   function syncCheckersName() {
+    if (checkersEls.name?.id === "playerName") return;
     const mainName = document.querySelector("#playerName")?.value;
     const stored = window.localStorage.getItem("tenderBombPlayerName");
     const current = checkersEls.name.value;
     checkersEls.name.value = cleanCheckersName(stored || mainName || current);
+  }
+
+  function syncMainPlayerName(name) {
+    const mainName = document.querySelector("#playerName");
+    if (mainName && mainName !== checkersEls.name) mainName.value = name;
   }
 
   function getCheckersName() {

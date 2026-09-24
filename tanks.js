@@ -94,7 +94,7 @@
     tanksEls.tenderView = document.querySelector("#tenderBombView");
     tanksEls.checkersView = document.querySelector("#checkersView");
     tanksEls.view = document.querySelector("#tanksView");
-    tanksEls.name = document.querySelector("#tanksName");
+    tanksEls.name = document.querySelector("#playerName") || document.querySelector("#tanksName");
     tanksEls.saveNameBtn = document.querySelector("#saveTanksNameBtn");
     tanksEls.startBtn = document.querySelector("#startTanksBtn");
     tanksEls.statusText = document.querySelector("#tanksStatusText");
@@ -121,9 +121,9 @@
 
   function bindTanksControls() {
     tanksEls.openBtn.addEventListener("click", openTanks);
-    tanksEls.closeBtn.addEventListener("click", closeTanks);
+    if (tanksEls.closeBtn) tanksEls.closeBtn.addEventListener("click", closeTanks);
     tanksEls.startBtn.addEventListener("click", startTanksRun);
-    tanksEls.saveNameBtn.addEventListener("click", saveTanksName);
+    if (tanksEls.saveNameBtn) tanksEls.saveNameBtn.addEventListener("click", saveTanksName);
     tanksEls.name.addEventListener("input", () => {
       const name = cleanTanksName(tanksEls.name.value);
       const mainName = document.querySelector("#playerName");
@@ -148,6 +148,9 @@
       tanksEls.name.value = name;
       tanksState.nameError = "";
       renderTanksStatus();
+    });
+    window.addEventListener("tenderBombOpenHome", () => {
+      if (tanksState.isOpen) closeTanks({ submit: false });
     });
     window.addEventListener("tenderBombOpenCheckers", () => {
       if (tanksState.isOpen) closeTanks({ showTender: false, submit: false });
@@ -1561,6 +1564,7 @@
   }
 
   function syncTanksName() {
+    if (!tanksEls.name || tanksEls.name.id === "playerName") return;
     tanksEls.name.value = getSavedTanksName();
   }
 
@@ -1748,7 +1752,7 @@
       : !currentName
         ? "Введите никнейм и сохраните, чтобы начать игру."
         : currentName !== savedName
-          ? "Никнейм изменен. Нажмите «Сохранить ник», чтобы начать."
+          ? "Никнейм изменен. Нажмите «Сохранить», чтобы начать."
           : tanksState.status === "playing"
             ? "Волна идет. База держится."
             : tanksState.status === "paused"

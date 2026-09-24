@@ -75,9 +75,8 @@
     casinoEls.checkersView = document.querySelector("#checkersView");
     casinoEls.tanksView = document.querySelector("#tanksView");
     casinoEls.view = document.querySelector("#casinoView");
-    casinoEls.name = document.querySelector("#casinoName");
+    casinoEls.name = document.querySelector("#playerName") || document.querySelector("#casinoName");
     casinoEls.saveNameBtn = document.querySelector("#saveCasinoNameBtn");
-    casinoEls.statusText = document.querySelector("#casinoStatusText");
     casinoEls.networkBadge = document.querySelector("#casinoNetworkBadge");
     casinoEls.leaderboardBadge = document.querySelector("#casinoLeaderboardBadge");
     casinoEls.badge = document.querySelector("#casinoBadge");
@@ -106,8 +105,8 @@
 
   function bindCasinoControls() {
     casinoEls.openBtn.addEventListener("click", openCasino);
-    casinoEls.closeBtn.addEventListener("click", closeCasino);
-    casinoEls.saveNameBtn.addEventListener("click", saveCasinoName);
+    if (casinoEls.closeBtn) casinoEls.closeBtn.addEventListener("click", closeCasino);
+    if (casinoEls.saveNameBtn) casinoEls.saveNameBtn.addEventListener("click", saveCasinoName);
     casinoEls.spinBtn.addEventListener("click", spinCasinoSlots);
     casinoEls.betButtons.forEach((button) => {
       button.addEventListener("click", () => selectCasinoBet(Number(button.dataset.casinoBet)));
@@ -128,6 +127,9 @@
       casinoState.nameError = "";
       if (casinoState.isOpen) refreshCasinoState();
       renderCasinoStatus();
+    });
+    window.addEventListener("tenderBombOpenHome", () => {
+      if (casinoState.isOpen) closeCasino();
     });
     window.addEventListener("tenderBombOpenCheckers", hideCasinoForExternalGame);
     window.addEventListener("tenderBombOpenTanks", hideCasinoForExternalGame);
@@ -462,6 +464,7 @@
   }
 
   function syncCasinoName() {
+    if (!casinoEls.name || casinoEls.name.id === "playerName") return;
     casinoEls.name.value = getSavedCasinoName();
   }
 
@@ -683,28 +686,15 @@
   }
 
   function renderCasinoStatus() {
-    if (!casinoEls.statusText) return;
     casinoEls.name.classList.toggle("is-invalid", Boolean(casinoState.nameError));
     casinoEls.badge.textContent = casinoState.spinning ? "SPIN" : casinoState.serverActive ? "READY" : "OFFLINE";
     casinoEls.networkBadge.textContent = casinoState.serverActive ? "LAN" : "OFFLINE";
     casinoEls.leaderboardBadge.textContent = casinoState.serverActive ? "LAN" : "OFFLINE";
 
-    const currentName = cleanCasinoName(casinoEls.name.value);
-    const savedName = getSavedCasinoName();
     const invalidBet = !isCasinoBetAllowed(casinoState.bet);
     const notEnough = casinoState.credits !== null && casinoState.credits < casinoState.bet;
     casinoEls.spinBtn.disabled =
       casinoState.spinning || !casinoState.serverActive || !isCasinoNameSaved() || casinoState.credits === null || invalidBet || notEnough;
-
-    casinoEls.statusText.textContent = casinoState.nameError
-      ? casinoState.nameError
-      : !currentName
-        ? "Введите никнейм и сохраните, чтобы открыть кассу."
-        : currentName !== savedName
-          ? "Никнейм изменен. Нажмите «Сохранить ник»."
-          : casinoState.serverActive && casinoState.clientIp
-            ? `Ник привязан к IP ${casinoState.clientIp}.`
-            : "Сервер кассы не подключен.";
   }
 
   function renderCasinoStats() {

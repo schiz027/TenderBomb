@@ -18,27 +18,37 @@
   <body>
     <div class="app">
       <header class="topbar">
-        <div class="brand" aria-label="TenderBomb">
+        <button class="brand brand-button" id="brandHomeBtn" type="button" aria-label="Вернуться в TenderBomb">
           <img class="brand-logo" src="assets/tenderbomb-logo.png" alt="TenderBomb">
-        </div>
+        </button>
         <div class="game-launcher" aria-label="Дополнительные режимы">
-          <p class="ban-disclaimer">
-            Если будете использовать сторонние программы/эксплойты/баги, Вы будете <strong>ЗАБАНЕНЫ</strong>!
-          </p>
-          <div class="launcher-actions">
-            <div class="launcher-buttons">
-              <button class="mini-game-button casino-launch-button" id="openCasinoBtn" type="button">
-                <span>CASINO</span>
-                <span class="launcher-tag">NEW</span>
+          <section class="header-profile" aria-label="Профиль игрока">
+            <div class="header-profile-row">
+              <label class="player-field header-player-field">
+                <span>Никнейм</span>
+                <input id="playerName" type="text" maxlength="32" autocomplete="nickname" placeholder="Введите ник">
+              </label>
+              <button class="ghost-button profile-save-button" id="saveNameBtn" type="button">Сохранить</button>
+            </div>
+            <p class="race-status header-profile-status" id="raceStatus" aria-live="polite">Сервер рекордов не подключен.</p>
+          </section>
+          <div class="launcher-actions" aria-label="Выбор игры">
+            <div class="launcher-row launcher-row-main">
+              <button class="mini-game-button sapper-launch-button is-active" id="openSapperBtn" type="button" data-launch-game="sapper">
+                <span>Сапёр</span>
               </button>
-              <button class="mini-game-button checkers-beta-button" id="openCheckersBtn" type="button">
+              <button class="mini-game-button checkers-beta-button" id="openCheckersBtn" type="button" data-launch-game="checkers">
                 <span>Шашки</span>
               </button>
-              <button class="mini-game-button tanks-beta-button" id="openTanksBtn" type="button">
+              <button class="mini-game-button tanks-beta-button" id="openTanksBtn" type="button" data-launch-game="tanks">
                 <span>Танчики</span>
               </button>
             </div>
-            <p class="launcher-credit-hint">Заработай кредиты</p>
+            <div class="launcher-row launcher-row-casino">
+              <button class="mini-game-button casino-launch-button" id="openCasinoBtn" type="button" data-launch-game="casino">
+                <span>Casino Slots</span>
+              </button>
+            </div>
           </div>
         </div>
         <div class="round-status" id="roundStatus">Новый аукцион</div>
@@ -53,14 +63,6 @@
             </div>
             <span class="mood" id="raceBadge">OFFLINE</span>
           </div>
-          <label class="player-field">
-            <span>Имя</span>
-            <input id="playerName" type="text" maxlength="32" autocomplete="nickname">
-          </label>
-          <div class="race-actions">
-            <button class="ghost-button" id="saveNameBtn" type="button">Сохранить</button>
-          </div>
-          <p class="race-status" id="raceStatus">Сервер рекордов не подключен.</p>
           <div class="leaderboards" id="leaderboards"></div>
         </aside>
 
@@ -142,15 +144,6 @@
       </main>
 
       <main class="casino-screen" id="casinoView" aria-label="Казино" hidden>
-        <aside class="casino-game-rail" aria-label="Меню игр казино">
-          <p class="eyebrow">зал</p>
-          <div class="casino-game-switch casino-game-switch-rail" role="tablist" aria-label="Игры казино">
-            <button class="mode-button is-active" type="button" data-casino-game="slots">Слоты</button>
-            <button class="mode-button" type="button" disabled title="В разработке">Скоро</button>
-            <button class="mode-button" type="button" disabled title="В разработке">Скоро</button>
-          </div>
-        </aside>
-
         <aside class="casino-panel casino-lobby" aria-label="Касса казино">
           <div class="panel-header">
             <div>
@@ -159,14 +152,6 @@
             </div>
             <span class="mood" id="casinoNetworkBadge">OFFLINE</span>
           </div>
-          <label class="player-field">
-            <span>Имя</span>
-            <input id="casinoName" type="text" maxlength="32" autocomplete="nickname">
-          </label>
-          <div class="race-actions">
-            <button class="ghost-button" id="saveCasinoNameBtn" type="button">Сохранить ник</button>
-          </div>
-          <p class="race-status" id="casinoStatusText">Касса готовится.</p>
           <div class="casino-credit-card" aria-label="Текущие кредиты">
             <span>Кредиты</span>
             <strong id="casinoCredits">0</strong>
@@ -192,10 +177,6 @@
             </div>
             <div class="casino-header-actions">
               <span class="mood" id="casinoBadge">READY</span>
-              <button class="ghost-button casino-back-button" id="closeCasinoBtn" type="button">
-                <span aria-hidden="true">←</span>
-                <span>Назад в TenderBomb</span>
-              </button>
             </div>
           </header>
 
@@ -294,13 +275,6 @@
             <p class="eyebrow">лобби</p>
             <h3 id="checkersLobbyTitle">Вход в партию</h3>
           </div>
-          <label class="player-field">
-            <span>Имя</span>
-            <input id="checkersName" type="text" maxlength="32" autocomplete="nickname">
-          </label>
-          <div class="race-actions">
-            <button class="ghost-button" id="saveCheckersNameBtn" type="button">Сохранить ник</button>
-          </div>
 
           <section class="checkers-mode-section" aria-label="Одиночный режим">
             <h4>Одиночный режим</h4>
@@ -342,10 +316,6 @@
             <div class="checkers-header-actions">
               <span class="checkers-result-badge" id="checkersResultBadge" hidden></span>
               <span class="mood" id="checkersBadge">LOBBY</span>
-              <button class="ghost-button checkers-back-button" id="closeCheckersBtn" type="button">
-                <span aria-hidden="true">←</span>
-                <span>Назад в TenderBomb</span>
-              </button>
             </div>
           </header>
 
@@ -390,12 +360,7 @@
             <p class="eyebrow">beta</p>
             <h3>Танчики</h3>
           </div>
-          <label class="player-field">
-            <span>Имя</span>
-            <input id="tanksName" type="text" maxlength="32" autocomplete="nickname">
-          </label>
           <div class="race-actions">
-            <button class="ghost-button" id="saveTanksNameBtn" type="button">Сохранить ник</button>
             <button class="primary-button" id="startTanksBtn" type="button">Старт</button>
           </div>
           <p class="race-status" id="tanksStatusText">База готова к обороне.</p>
@@ -420,10 +385,6 @@
             </div>
             <div class="tanks-header-actions">
               <span class="mood" id="tanksBadge">READY</span>
-              <button class="ghost-button tanks-back-button" id="closeTanksBtn" type="button">
-                <span aria-hidden="true">←</span>
-                <span>Назад в TenderBomb</span>
-              </button>
             </div>
           </header>
 

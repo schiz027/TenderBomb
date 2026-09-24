@@ -1985,7 +1985,7 @@ def handle_console_command(line):
     if not command:
         return
     lowered = command.casefold()
-    if lowered in {"exit", "quit"}:
+    if lowered in {"exit", "quit", "stop"}:
         message = "Сервер был отключен."
         with LOCK:
             set_server_notice(message, 10_000)
@@ -2021,7 +2021,7 @@ def handle_console_command(line):
         with LOCK:
             set_tanks_god(player, False)
         return
-    print("Unknown command. Available: god <nick>, ungod <nick>, stealth, restart, exit, quit")
+    print("Unknown command. Available: god <nick>, ungod <nick>, stealth, restart, exit, quit, stop")
 
 
 def console_command_loop():
@@ -2059,7 +2059,7 @@ def main():
     for ip in local_ips():
         print(f"LAN:   http://{ip}:{port}/")
     print()
-    print("Commands: god <nick>, ungod <nick>, stealth, restart, exit, quit")
+    print("Commands: god <nick>, ungod <nick>, stealth, restart, exit, quit, stop")
     print("Keep this window open while colleagues are playing.")
     print()
 
