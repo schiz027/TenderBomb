@@ -3,6 +3,7 @@
   const LEADERBOARD_CACHE_KEY = "tenderBombCasinoLeaderboard";
   const POLL_MS = 5000;
   const SPIN_DELAY_MS = 520;
+  const SERVER_OFFLINE_RETRY_LIMIT = 3;
   const BETS = [10, 25, 50, 100, 250, 500, 1000];
   const DEFAULT_MIN_BET = 1;
   const DEFAULT_MAX_BET = 10000;
@@ -34,6 +35,8 @@
     clientIp: "",
     pollId: null,
     spinInterval: null,
+    refreshInFlight: false,
+    offlineFailures: 0,
     leaderboard: [],
     history: [],
     nameError: "",
@@ -180,6 +183,7 @@
       }
       await refreshCasinoState();
       casinoState.serverActive = true;
+      casinoState.offlineFailures = 0;
     } catch (error) {
       casinoState.serverActive = false;
       casinoState.spinText = "Касса offline";
@@ -200,16 +204,24 @@
   }
 
   async function refreshCasinoState() {
+    if (casinoState.refreshInFlight || casinoState.spinning) return;
+    casinoState.refreshInFlight = true;
     try {
       const data = await casinoApiGet("/api/casino/state");
       applyCasinoState(data);
       casinoState.serverActive = data.ok !== false;
+      casinoState.offlineFailures = 0;
       renderCasinoStatic();
     } catch (error) {
-      const wasActive = casinoState.serverActive;
-      casinoState.serverActive = false;
-      if (wasActive) notifyCasinoServerOffline();
-      renderCasinoStatic();
+      casinoState.offlineFailures += 1;
+      if (casinoState.offlineFailures >= SERVER_OFFLINE_RETRY_LIMIT) {
+        const wasActive = casinoState.serverActive;
+        casinoState.serverActive = false;
+        if (wasActive) notifyCasinoServerOffline();
+        renderCasinoStatic();
+      }
+    } finally {
+      casinoState.refreshInFlight = false;
     }
   }
 
@@ -232,6 +244,7 @@
         const data = await casinoApiPost("/api/profile", { player: name });
         applyCasinoServerNotice(data);
         casinoState.serverActive = data.ok !== false;
+        casinoState.offlineFailures = 0;
         casinoState.clientIp = data.ip || casinoState.clientIp;
         if (data.ok === false) {
           showCasinoProfileError(data);
@@ -332,6 +345,7 @@
       stopSpinAnimation(data?.result?.symbols);
       applyCasinoState(data);
       casinoState.serverActive = data.ok !== false;
+      casinoState.offlineFailures = 0;
       handleCasinoSpinResult(data?.result);
       renderCasinoStatic();
     } catch (error) {
@@ -437,12 +451,10 @@
     casinoState.spinning = true;
     casinoState.resultTone = "";
     casinoState.spinText = "Крутим...";
-    casinoState.spinInterval = window.setInterval(() => {
-      casinoState.topReels = Array.from({ length: 3 }, randomCasinoSymbol);
-      casinoState.reels = Array.from({ length: 3 }, randomCasinoSymbol);
-      casinoState.bottomReels = Array.from({ length: 3 }, randomCasinoSymbol);
-      renderCasinoReels();
-    }, 75);
+    casinoState.topReels = Array.from({ length: 3 }, randomCasinoSymbol);
+    casinoState.reels = Array.from({ length: 3 }, randomCasinoSymbol);
+    casinoState.bottomReels = Array.from({ length: 3 }, randomCasinoSymbol);
+    renderCasinoReels();
   }
 
   function stopSpinAnimation(finalReels) {
@@ -687,7 +699,7 @@
 
   function renderCasinoStatus() {
     casinoEls.name.classList.toggle("is-invalid", Boolean(casinoState.nameError));
-    casinoEls.badge.textContent = casinoState.spinning ? "SPIN" : casinoState.serverActive ? "READY" : "OFFLINE";
+    if (casinoEls.badge) casinoEls.badge.textContent = casinoState.spinning ? "SPIN" : casinoState.serverActive ? "READY" : "OFFLINE";
     casinoEls.networkBadge.textContent = casinoState.serverActive ? "LAN" : "OFFLINE";
     casinoEls.leaderboardBadge.textContent = casinoState.serverActive ? "LAN" : "OFFLINE";
 

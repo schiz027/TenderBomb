@@ -13,9 +13,9 @@ import uuid
 
 
 MODE_RULES = {
-    "express": {"active": 64, "mines": 10, "min_win_seconds": 6},
-    "state": {"active": 128, "mines": 22, "min_win_seconds": 18},
-    "registry": {"active": 256, "mines": 48, "min_win_seconds": 45},
+    "express": {"active": 64, "mines": 10, "min_win_seconds": 1},
+    "state": {"active": 128, "mines": 22, "min_win_seconds": 1},
+    "registry": {"active": 256, "mines": 48, "min_win_seconds": 1},
 }
 SAPPER_CREDIT_REWARDS = {
     "express": 500,
@@ -95,12 +95,18 @@ LOCK = threading.Lock()
 RECORDS_PATH = Path(__file__).resolve().with_name("leaderboard-records.json")
 LEADERBOARD_CACHE_PATH = Path(__file__).resolve().with_name("leaderboard-cache.js")
 SERVER_NOTICE_PATH = Path(__file__).resolve().with_name(".server-notice.json")
+ONLINE_STATE_PATH = Path(__file__).resolve().with_name(".online-state.json")
+CHAT_HISTORY_LIMIT = 150
+CHAT_MESSAGE_LIMIT = 300
+ONLINE_TTL_MS = 15_000
 STATE = {
     "records": {mode: {} for mode in RECORD_MODES},
     "profiles": {},
     "casino": {"jackpot": CASINO_JACKPOT_SEED, "big_wins": []},
+    "chat": {"next_id": 1, "messages": []},
 }
 SERVER_CONTROL = {"server": None, "restart": False, "stealth": False, "notice": "", "notice_until": 0}
+ONLINE_STATE = {"clients": {}}
 TANKS_GOD_OWNERS = set()
 ROUND_TTL_MS = 2 * 60 * 60 * 1000
 ROUND_STATE = {"rounds": {}}
@@ -111,6 +117,15 @@ CHECKERS_SINGLEPLAYER_RESULT_TTL_MS = 24 * 60 * 60 * 1000
 CHECKERS_SINGLEPLAYER_RESULTS = {}
 
 
+class TenderBombHTTPServer(ThreadingHTTPServer):
+    allow_reuse_address = False
+
+    def server_bind(self):
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
+
+
 def now_ms():
     return int(time.time() * 1000)
 
@@ -118,6 +133,11 @@ def now_ms():
 def clean_player(value):
     text = str(value or "").strip()
     return text[:32]
+
+
+def clean_chat_text(value):
+    text = " ".join(str(value or "").strip().split())
+    return text[:CHAT_MESSAGE_LIMIT]
 
 
 def clean_round_id(value):
@@ -163,6 +183,115 @@ def server_notice():
 def set_server_notice(message, ttl_ms=15_000):
     SERVER_CONTROL["notice"] = str(message or "").strip()
     SERVER_CONTROL["notice_until"] = now_ms() + ttl_ms if SERVER_CONTROL["notice"] else 0
+
+
+def clean_online_view(value):
+    text = str(value or "").strip().casefold()
+    if text in {"sapper", "casino", "checkers", "tanks"}:
+        return text
+    return "sapper"
+
+
+def normalize_online_clients(clients, current=None):
+    current = current or now_ms()
+    normalized = {}
+    if not isinstance(clients, dict):
+        return normalized
+
+    for owner, item in clients.items():
+        if not isinstance(item, dict):
+            continue
+        ip = record_owner_key(item.get("ip") or owner)
+        last_seen = safe_int(item.get("last_seen"), 0)
+        if not ip or current - last_seen > ONLINE_TTL_MS:
+            continue
+        normalized[ip] = {
+            "ip": ip,
+            "player": clean_player(STATE["profiles"].get(ip) or item.get("player")),
+            "view": clean_online_view(item.get("view")),
+            "last_seen": last_seen,
+        }
+    return normalized
+
+
+def read_online_clients_file():
+    try:
+        payload = json.loads(ONLINE_STATE_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    return payload.get("clients", {})
+
+
+def write_online_clients_file(clients):
+    payload = {"clients": clients, "updated_at": now_ms()}
+    temp_path = ONLINE_STATE_PATH.with_name(f"{ONLINE_STATE_PATH.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+    try:
+        temp_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        os.replace(temp_path, ONLINE_STATE_PATH)
+    except OSError:
+        try:
+            temp_path.unlink()
+        except OSError:
+            pass
+
+
+def cleanup_online_locked(current=None, persist=True):
+    current = current or now_ms()
+    merged = normalize_online_clients(read_online_clients_file(), current)
+    merged.update(normalize_online_clients(ONLINE_STATE.get("clients"), current))
+    ONLINE_STATE["clients"] = merged
+    if persist:
+        write_online_clients_file(merged)
+
+
+def online_rows(current=None):
+    current = current or now_ms()
+    cleanup_online_locked(current)
+    rows = []
+    for owner, item in ONLINE_STATE["clients"].items():
+        ip = record_owner_key(item.get("ip") or owner)
+        if not ip:
+            continue
+        player = clean_player(STATE["profiles"].get(ip) or item.get("player"))
+        rows.append(
+            {
+                "ip": ip,
+                "player": player,
+                "view": clean_online_view(item.get("view")),
+                "last_seen": safe_int(item.get("last_seen"), current),
+            }
+        )
+    return sorted(rows, key=lambda row: ((row["player"] or "яяя").casefold(), row["ip"]))
+
+
+def public_online_state():
+    rows = online_rows()
+    return {
+        "ok": True,
+        "count": len(rows),
+        "players": rows,
+        "ttl_ms": ONLINE_TTL_MS,
+    }
+
+
+def register_online_heartbeat(payload, client_ip):
+    owner = record_owner_key(client_ip)
+    if not owner:
+        return public_online_state()
+    payload = payload if isinstance(payload, dict) else {}
+    current = now_ms()
+    cleanup_online_locked(current, persist=False)
+    player = clean_player(STATE["profiles"].get(owner) or payload.get("player"))
+    ONLINE_STATE["clients"][owner] = {
+        "ip": owner,
+        "player": player,
+        "view": clean_online_view(payload.get("view")),
+        "last_seen": current,
+    }
+    cleanup_online_locked(current)
+    return public_online_state()
 
 
 def write_next_start_notice(message, ttl_ms=120_000):
@@ -371,6 +500,34 @@ def set_profile(client_ip, player):
     return changed
 
 
+def clean_chat_state(chat=None):
+    source = chat if isinstance(chat, dict) else {}
+    raw_messages = source.get("messages", [])
+    messages = []
+    max_id = 0
+
+    if isinstance(raw_messages, list):
+        for item in raw_messages[-CHAT_HISTORY_LIMIT:]:
+            if not isinstance(item, dict):
+                continue
+            player = clean_player(item.get("player"))
+            text = clean_chat_text(item.get("text"))
+            message_id = safe_int(item.get("id"), 0)
+            created_at = safe_int(item.get("created_at"), 0)
+            if not player or not text or message_id <= 0:
+                continue
+            max_id = max(max_id, message_id)
+            messages.append({
+                "id": message_id,
+                "player": player,
+                "text": text,
+                "created_at": created_at or now_ms(),
+            })
+
+    next_id = max(safe_int(source.get("next_id"), 1), max_id + 1, 1)
+    return {"next_id": next_id, "messages": messages[-CHAT_HISTORY_LIMIT:]}
+
+
 def load_records():
     if not RECORDS_PATH.exists():
         return False
@@ -401,19 +558,26 @@ def load_records():
             changed = True
     elif "casino" not in data:
         changed = True
+    cleaned_chat = clean_chat_state(data.get("chat"))
+    if STATE.get("chat") != cleaned_chat:
+        STATE["chat"] = cleaned_chat
+        if data.get("chat") != cleaned_chat:
+            changed = True
+    elif "chat" not in data:
+        changed = True
     if normalize_all_records_by_ip():
         changed = True
     return changed
 
 
 def save_records():
-    data = {"records": STATE["records"], "profiles": STATE["profiles"], "casino": STATE["casino"]}
+    data = {"records": STATE["records"], "profiles": STATE["profiles"], "casino": STATE["casino"], "chat": STATE["chat"]}
     RECORDS_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     save_leaderboard_cache(data)
 
 
 def save_leaderboard_cache(data=None):
-    payload = data or {"records": STATE["records"], "profiles": STATE["profiles"], "casino": STATE["casino"]}
+    payload = data or {"records": STATE["records"], "profiles": STATE["profiles"], "casino": STATE["casino"], "chat": STATE["chat"]}
     cache = "window.TENDERBOMB_RECORDS = " + json.dumps(payload, ensure_ascii=False) + ";\n"
     LEADERBOARD_CACHE_PATH.write_text(cache, encoding="utf-8")
 
@@ -442,6 +606,55 @@ def with_server_notice(payload):
     if notice:
         payload["server_notice"] = notice
     return payload
+
+
+def public_chat_message(message):
+    return {
+        "id": safe_int(message.get("id"), 0),
+        "player": clean_player(message.get("player")),
+        "text": clean_chat_text(message.get("text")),
+        "created_at": safe_int(message.get("created_at"), 0),
+    }
+
+
+def public_chat_state(after_id=0, client_ip=""):
+    after = safe_int(after_id, 0)
+    messages = [
+        public_chat_message(message)
+        for message in STATE["chat"].get("messages", [])
+        if safe_int(message.get("id"), 0) > after
+    ]
+    return with_server_notice({
+        "ok": True,
+        "messages": messages,
+        "server_time": now_ms(),
+        "player": STATE["profiles"].get(record_owner_key(client_ip), ""),
+    })
+
+
+def register_chat_message(payload, client_ip):
+    owner = record_owner_key(client_ip)
+    player = STATE["profiles"].get(owner, "")
+    if not owner or not player:
+        return with_server_notice({"ok": False, "error": "invalid_player", "messages": []})
+
+    text = clean_chat_text(payload.get("text"))
+    if not text:
+        return with_server_notice({"ok": False, "error": "empty_message", "messages": []})
+
+    chat = clean_chat_state(STATE.get("chat"))
+    message_id = safe_int(chat.get("next_id"), 1)
+    message = {
+        "id": message_id,
+        "player": player,
+        "text": text,
+        "created_at": now_ms(),
+    }
+    chat["next_id"] = message_id + 1
+    chat["messages"] = [*chat.get("messages", []), message][-CHAT_HISTORY_LIMIT:]
+    STATE["chat"] = chat
+    save_records()
+    return public_chat_state(safe_int(payload.get("after"), 0), client_ip)
 
 
 def public_state(mode="express"):
@@ -1015,7 +1228,9 @@ def register_result(payload, client_ip):
 
     current = now_ms()
     elapsed_ms = max(0, current - int(round_data.get("started_at", current)))
-    seconds = max(1, min((elapsed_ms + 999) // 1000, 60 * 60))
+    server_seconds = max(1, min((elapsed_ms + 999) // 1000, 60 * 60))
+    client_seconds = max(1, min(safe_int(payload.get("client_seconds"), server_seconds), 60 * 60))
+    seconds = server_seconds
     round_data["used"] = True
 
     rules = MODE_RULES[mode]
@@ -1045,7 +1260,8 @@ def register_result(payload, client_ip):
                     "recorded": False,
                     "reason": "too_fast",
                     "error": "too_fast",
-                    "server_seconds": seconds,
+                    "server_seconds": server_seconds,
+                    "client_seconds": client_seconds,
                     "min_seconds": min_win_seconds,
                 },
                 client_ip,
@@ -1852,6 +2068,12 @@ class TenderBombHandler(SimpleHTTPRequestHandler):
             with LOCK:
                 self.send_json(public_profile(self.client_address[0]))
             return
+        if path == "/api/chat":
+            query = parse_qs(parsed.query)
+            after = safe_int((query.get("after") or ["0"])[0], 0)
+            with LOCK:
+                self.send_json(public_chat_state(after, self.client_address[0]))
+            return
         if path == "/api/checkers/state":
             query = parse_qs(parsed.query)
             client_id = (query.get("client_id") or [""])[0]
@@ -1883,6 +2105,16 @@ class TenderBombHandler(SimpleHTTPRequestHandler):
         if path == "/api/profile":
             with LOCK:
                 self.send_json(save_profile(self.client_address[0], payload))
+            return
+
+        if path == "/api/chat":
+            with LOCK:
+                self.send_json(register_chat_message(payload, self.client_address[0]))
+            return
+
+        if path == "/api/online/heartbeat":
+            with LOCK:
+                self.send_json(register_online_heartbeat(payload, self.client_address[0]))
             return
 
         if path == "/api/round/start":
@@ -1980,6 +2212,17 @@ def set_tanks_god(player, enabled=None):
         print(f"God mode disabled for {saved_player} ({owner}).")
 
 
+def print_online_players():
+    rows = online_rows()
+    if not rows:
+        print("Online players: 0")
+        return
+    print(f"Online players: {len(rows)}")
+    for row in rows:
+        player = row["player"] or "без ника"
+        print(f"- {row['ip']} - {player}")
+
+
 def handle_console_command(line):
     command = str(line or "").strip()
     if not command:
@@ -2005,6 +2248,10 @@ def handle_console_command(line):
         print("Switching server to tray mode...")
         request_stealth_mode()
         return
+    if lowered == "list":
+        with LOCK:
+            print_online_players()
+        return
     if lowered.startswith("god "):
         player = command[4:].strip()
         if not player:
@@ -2021,7 +2268,7 @@ def handle_console_command(line):
         with LOCK:
             set_tanks_god(player, False)
         return
-    print("Unknown command. Available: god <nick>, ungod <nick>, stealth, restart, exit, quit, stop")
+    print("Unknown command. Available: list, god <nick>, ungod <nick>, stealth, restart, exit, quit, stop")
 
 
 def console_command_loop():
@@ -2052,18 +2299,16 @@ def main():
             save_leaderboard_cache()
         load_next_start_notice()
 
-    print()
-    print("TenderBomb records server")
-    print("=========================")
-    print(f"Local: http://localhost:{port}/")
-    for ip in local_ips():
-        print(f"LAN:   http://{ip}:{port}/")
-    print()
-    print("Commands: god <nick>, ungod <nick>, stealth, restart, exit, quit, stop")
+    print("Commands: list, god <nick>, ungod <nick>, stealth, restart, exit, quit, stop")
     print("Keep this window open while colleagues are playing.")
     print()
 
-    server = ThreadingHTTPServer(("0.0.0.0", port), TenderBombHandler)
+    try:
+        server = TenderBombHTTPServer(("0.0.0.0", port), TenderBombHandler)
+    except OSError as exc:
+        print(f"Порт {port} уже занят. Закройте старое окно сервера TenderBomb и запустите сервер снова.")
+        print(f"Details: {exc}")
+        sys.exit(1)
     SERVER_CONTROL["server"] = server
     threading.Thread(target=console_command_loop, daemon=True).start()
     try:

@@ -16,6 +16,7 @@
   const NAME_REQUIRED_MESSAGE = "Введите никнейм и сохраните!";
   const NAME_TAKEN_MESSAGE = "Этот ник уже занят другим игроком.";
   const SERVER_OFFLINE_MESSAGE = "Сервер был отключен.";
+  const SERVER_OFFLINE_RETRY_LIMIT = 3;
 
   const DIRS = {
     up: { x: 0, y: -1 },
@@ -41,6 +42,8 @@
     serverActive: false,
     clientIp: "",
     pollId: null,
+    refreshInFlight: false,
+    offlineFailures: 0,
     rafId: null,
     lastTime: 0,
     leaderboard: [],
@@ -205,6 +208,7 @@
       }
       await refreshTanksLeaderboard();
       tanksState.serverActive = true;
+      tanksState.offlineFailures = 0;
     } catch (error) {
       tanksState.serverActive = false;
     }
@@ -224,17 +228,25 @@
   }
 
   async function refreshTanksLeaderboard() {
+    if (tanksState.refreshInFlight) return;
+    tanksState.refreshInFlight = true;
     try {
       const data = await tanksApiGet("/api/tanks/state");
       applyTanksServerState(data);
       tanksState.serverActive = true;
+      tanksState.offlineFailures = 0;
       renderTanksLeaderboard();
       renderTanksStatus();
     } catch (error) {
-      const wasActive = tanksState.serverActive;
-      tanksState.serverActive = false;
-      if (wasActive) notifyTanksServerOffline();
-      renderTanksStatus();
+      tanksState.offlineFailures += 1;
+      if (tanksState.offlineFailures >= SERVER_OFFLINE_RETRY_LIMIT) {
+        const wasActive = tanksState.serverActive;
+        tanksState.serverActive = false;
+        if (wasActive) notifyTanksServerOffline();
+        renderTanksStatus();
+      }
+    } finally {
+      tanksState.refreshInFlight = false;
     }
   }
 

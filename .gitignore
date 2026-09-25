@@ -4,6 +4,7 @@ leaderboard-cache.js
 
 # Temporary server notice marker
 .server-notice.json
+.online-state.json
 
 # Logs
 *.log

@@ -3,6 +3,7 @@
   const NAME_REQUIRED_MESSAGE = "Введите никнейм и сохраните!";
   const NAME_TAKEN_MESSAGE = "Этот ник уже занят другим игроком.";
   const SERVER_OFFLINE_MESSAGE = "Сервер был отключен.";
+  const SERVER_OFFLINE_RETRY_LIMIT = 3;
   const COLORS = {
     white: "Белые",
     black: "Черные",
@@ -29,6 +30,8 @@
     notice: "",
     serverNotice: "",
     pollId: null,
+    pollInFlight: false,
+    offlineFailures: 0,
     clockId: null,
     botTimerId: null,
   };
@@ -250,15 +253,19 @@
   }
 
   async function pollCheckers() {
-    if (!checkersState.isOpen || !checkersState.joined) return;
+    if (!checkersState.isOpen || !checkersState.joined || checkersState.pollInFlight) return;
+    checkersState.pollInFlight = true;
     try {
       const params = new URLSearchParams({
         client_id: checkersState.clientId,
         player: getSavedCheckersName(),
       });
       const data = await checkersGet(`/api/checkers/state?${params}`);
+      checkersState.offlineFailures = 0;
       applyCheckersData(data);
     } catch (error) {
+      checkersState.offlineFailures += 1;
+      if (checkersState.offlineFailures < SERVER_OFFLINE_RETRY_LIMIT) return;
       checkersState.status = "offline";
       checkersState.error = SERVER_OFFLINE_MESSAGE;
       checkersState.serverNotice = SERVER_OFFLINE_MESSAGE;
@@ -266,6 +273,8 @@
       stopCheckersPolling();
       window.TenderBombNotice?.show(SERVER_OFFLINE_MESSAGE);
       renderCheckers();
+    } finally {
+      checkersState.pollInFlight = false;
     }
   }
 

@@ -150,10 +150,16 @@ const MODE_ORDER = ["express", "state", "registry"];
 const LEADERBOARD_CACHE_KEY = "tenderBombLeaderboards";
 const THEME_CACHE_KEY = "tenderBombTheme";
 const THEMES = ["beige", "green", "purple", "pink", "blue", "dark"];
-const RECORD_MIN_SECONDS = { express: 6, state: 18, registry: 45 };
+const RECORD_MIN_SECONDS = { express: 1, state: 1, registry: 1 };
 const NAME_REQUIRED_MESSAGE = "Введите никнейм и сохраните!";
 const NAME_TAKEN_MESSAGE = "Этот ник уже занят другим игроком.";
 const SERVER_OFFLINE_MESSAGE = "Сервер был отключен.";
+const MULTIPLAYER_POLL_MS = 2500;
+const SERVER_OFFLINE_RETRY_LIMIT = 3;
+const ONLINE_HEARTBEAT_MS = 5000;
+const CHAT_POLL_MS = 2500;
+const CHAT_LAST_SEEN_KEY = "tenderBombChatLastSeenId";
+const CHAT_MESSAGE_LIMIT = 300;
 const SAVE_NAME_TEXT = "Сохранить";
 const SAVED_NAME_TEXT = "Никнейм сохранён";
 const SAVING_NAME_TEXT = "Сохраняем...";
@@ -171,6 +177,29 @@ const multiplayer = {
   nameError: "",
   nameSaving: false,
   serverNotice: "",
+  offlineFailures: 0,
+  refreshInFlight: false,
+};
+const chat = {
+  isOpen: false,
+  active: false,
+  pollId: null,
+  inFlight: false,
+  sending: false,
+  messages: [],
+  lastMessageId: 0,
+  lastSeenId: 0,
+  hasSeenMarker: false,
+  unread: 0,
+  status: "Чат offline.",
+};
+const online = {
+  active: false,
+  pollId: null,
+  inFlight: false,
+  offlineFailures: 0,
+  count: 0,
+  players: [],
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -180,6 +209,8 @@ document.addEventListener("DOMContentLoaded", () => {
   setupStatusIcons();
   startGame("express");
   initializeMultiplayer();
+  initializeOnline();
+  initializeChat();
 });
 
 function cacheElements() {
@@ -215,7 +246,19 @@ function cacheElements() {
   els.saveNameBtn = document.querySelector("#saveNameBtn");
   els.raceStatus = document.querySelector("#raceStatus");
   els.raceBadge = document.querySelector("#raceBadge");
+  els.onlinePanel = document.querySelector("#onlinePanel");
+  els.onlineCount = document.querySelector("#onlineCount");
+  els.onlineCaption = document.querySelector("#onlineCaption");
   els.leaderboards = document.querySelector("#leaderboards");
+  els.chatOpenBtn = document.querySelector("#chatOpenBtn");
+  els.chatUnreadBadge = document.querySelector("#chatUnreadBadge");
+  els.chatLayer = document.querySelector("#chatLayer");
+  els.chatCloseBtn = document.querySelector("#chatCloseBtn");
+  els.chatMessages = document.querySelector("#chatMessages");
+  els.chatStatus = document.querySelector("#chatStatus");
+  els.chatForm = document.querySelector("#chatForm");
+  els.chatInput = document.querySelector("#chatInput");
+  els.chatSendBtn = document.querySelector("#chatSendBtn");
   els.themeButtons = Array.from(document.querySelectorAll(".theme-button"));
 }
 
@@ -252,6 +295,17 @@ function bindControls() {
     renderMultiplayer();
   });
   els.saveNameBtn.addEventListener("click", savePlayerName);
+  if (els.chatOpenBtn) els.chatOpenBtn.addEventListener("click", openChat);
+  if (els.chatCloseBtn) els.chatCloseBtn.addEventListener("click", closeChat);
+  if (els.chatForm) {
+    els.chatForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      sendChatMessage();
+    });
+  }
+  if (els.chatInput) {
+    els.chatInput.addEventListener("input", renderChat);
+  }
   window.addEventListener("tenderBombNameSaved", (event) => {
     const name = cleanPlayerName(event.detail?.name);
     if (!name) return;
@@ -259,6 +313,8 @@ function bindControls() {
     multiplayer.nameError = "";
     els.playerName.value = name;
     renderMultiplayer();
+    renderChat();
+    sendOnlineHeartbeat();
   });
   window.addEventListener("resize", () => {
     if (!state) return;
@@ -342,6 +398,7 @@ function setActiveLauncherGame(gameId) {
   els.gameLaunchButtons.forEach((button) => {
     button.classList.toggle("is-active", button.dataset.launchGame === gameId);
   });
+  sendOnlineHeartbeat();
 }
 
 function setupStatusIcons() {
@@ -494,12 +551,289 @@ async function initializeMultiplayer() {
     await loadServerProfile();
     await loadLeaderboards(state.modeId);
     multiplayer.active = true;
-    multiplayer.pollId = window.setInterval(() => refreshMultiplayerState(), 2500);
+    multiplayer.offlineFailures = 0;
+    multiplayer.pollId = window.setInterval(() => refreshMultiplayerState(), MULTIPLAYER_POLL_MS);
     render();
   } catch (error) {
     multiplayer.active = false;
     render();
   }
+}
+
+function initializeOnline() {
+  if (!els.onlinePanel) return;
+  renderOnline();
+
+  if (window.location.protocol === "file:") {
+    online.active = false;
+    renderOnline();
+    return;
+  }
+
+  sendOnlineHeartbeat();
+  online.pollId = window.setInterval(() => sendOnlineHeartbeat(), ONLINE_HEARTBEAT_MS);
+}
+
+async function sendOnlineHeartbeat() {
+  if (!els.onlinePanel || online.inFlight || window.location.protocol === "file:") return;
+  online.inFlight = true;
+  try {
+    const data = await apiPost("/api/online/heartbeat", {
+      player: getSavedPlayerName(),
+      view: currentOnlineView(),
+    });
+    online.active = data?.ok !== false;
+    online.offlineFailures = 0;
+    online.count = Math.max(0, Number(data?.count) || 0);
+    online.players = Array.isArray(data?.players) ? data.players.map(normalizeOnlinePlayer).filter(Boolean) : [];
+    renderOnline();
+  } catch (error) {
+    online.offlineFailures += 1;
+    if (online.offlineFailures >= SERVER_OFFLINE_RETRY_LIMIT) {
+      online.active = false;
+      online.count = 0;
+      online.players = [];
+      renderOnline();
+    }
+  } finally {
+    online.inFlight = false;
+  }
+}
+
+function currentOnlineView() {
+  const activeButton = els.gameLaunchButtons?.find((button) => button.classList.contains("is-active"));
+  return activeButton?.dataset.launchGame || "sapper";
+}
+
+function normalizeOnlinePlayer(item) {
+  if (!item || typeof item !== "object") return null;
+  const ip = String(item.ip || "").trim();
+  if (!ip) return null;
+  return {
+    ip,
+    player: cleanPlayerName(item.player),
+    view: String(item.view || "sapper"),
+  };
+}
+
+function renderOnline() {
+  if (!els.onlinePanel || !els.onlineCount || !els.onlineCaption) return;
+  const count = online.active ? online.count : 0;
+  els.onlineCount.textContent = String(count);
+  els.onlineCaption.textContent = online.active ? pluralizePlayers(count) : "offline";
+  els.onlinePanel.classList.toggle("is-online", online.active);
+  els.onlinePanel.title = onlineTooltip();
+}
+
+function onlineTooltip() {
+  if (!online.active) return "Сервер онлайн не ответил.";
+  if (!online.players.length) return "Пока никого нет онлайн.";
+  return online.players.map((player) => `${player.player || "Без ника"} (${player.ip})`).join("\n");
+}
+
+function pluralizePlayers(count) {
+  const value = Math.abs(Number(count) || 0);
+  const lastTwo = value % 100;
+  const last = value % 10;
+  if (lastTwo >= 11 && lastTwo <= 14) return "игроков";
+  if (last === 1) return "игрок";
+  if (last >= 2 && last <= 4) return "игрока";
+  return "игроков";
+}
+
+function initializeChat() {
+  if (!els.chatOpenBtn || !els.chatLayer) return;
+  const storedSeen = window.localStorage.getItem(CHAT_LAST_SEEN_KEY);
+  chat.hasSeenMarker = storedSeen !== null;
+  chat.lastSeenId = Math.max(0, Number(storedSeen) || 0);
+  renderChat();
+
+  if (window.location.protocol === "file:") {
+    chat.active = false;
+    chat.status = "Чат offline.";
+    renderChat();
+    return;
+  }
+
+  pollChat({ initial: true });
+  chat.pollId = window.setInterval(() => pollChat(), CHAT_POLL_MS);
+}
+
+function openChat() {
+  chat.isOpen = true;
+  if (els.chatLayer) els.chatLayer.hidden = false;
+  markChatSeen();
+  renderChat();
+  focusChatInput();
+}
+
+function closeChat() {
+  chat.isOpen = false;
+  if (els.chatLayer) els.chatLayer.hidden = true;
+  renderChat();
+}
+
+async function pollChat(options = {}) {
+  if (!els.chatOpenBtn || chat.inFlight || window.location.protocol === "file:") return;
+  chat.inFlight = true;
+  try {
+    const data = await apiGet(`/api/chat?after=${encodeURIComponent(chat.lastMessageId)}`);
+    applyChatData(data, options);
+    chat.active = data.ok !== false;
+    chat.status = chat.active ? "" : chatErrorText(data.error);
+  } catch (error) {
+    chat.active = false;
+    chat.status = "Чат offline.";
+  } finally {
+    chat.inFlight = false;
+    renderChat();
+  }
+}
+
+function applyChatData(data, options = {}) {
+  const nextMessages = Array.isArray(data?.messages) ? data.messages.map(normalizeChatMessage).filter(Boolean) : [];
+  if (!nextMessages.length) return;
+
+  const knownIds = new Set(chat.messages.map((message) => message.id));
+  nextMessages.forEach((message) => {
+    if (!knownIds.has(message.id)) {
+      chat.messages.push(message);
+      knownIds.add(message.id);
+    }
+  });
+  chat.messages.sort((a, b) => a.id - b.id);
+  chat.messages = chat.messages.slice(-150);
+  chat.lastMessageId = Math.max(chat.lastMessageId, ...chat.messages.map((message) => message.id));
+
+  if (options.initial && !chat.hasSeenMarker) {
+    chat.lastSeenId = chat.lastMessageId;
+    chat.hasSeenMarker = true;
+    persistChatSeen();
+  }
+  if (chat.isOpen) markChatSeen();
+  updateChatUnread();
+}
+
+function normalizeChatMessage(item) {
+  const id = Math.max(0, Number(item?.id) || 0);
+  const player = cleanPlayerName(item?.player);
+  const text = String(item?.text || "").trim().slice(0, CHAT_MESSAGE_LIMIT);
+  const createdAt = Math.max(0, Number(item?.created_at) || 0);
+  if (!id || !player || !text) return null;
+  return { id, player, text, createdAt };
+}
+
+async function sendChatMessage() {
+  if (chat.sending || !els.chatInput) return;
+  const text = els.chatInput.value.trim().slice(0, CHAT_MESSAGE_LIMIT);
+  if (!text) return;
+  if (!isPlayerNameSaved()) {
+    chat.status = "Сначала сохрани ник.";
+    renderChat();
+    return;
+  }
+
+  chat.sending = true;
+  renderChat();
+  try {
+    const data = await apiPost("/api/chat", {
+      text,
+      after: chat.lastMessageId,
+    });
+    if (data.ok === false) {
+      chat.status = chatErrorText(data.error);
+      return;
+    }
+    els.chatInput.value = "";
+    applyChatData(data);
+    chat.active = true;
+    chat.status = "";
+    markChatSeen();
+  } catch (error) {
+    chat.active = false;
+    chat.status = "Чат offline.";
+  } finally {
+    chat.sending = false;
+    renderChat();
+    focusChatInput();
+  }
+}
+
+function markChatSeen() {
+  chat.lastSeenId = Math.max(chat.lastSeenId, chat.lastMessageId);
+  chat.hasSeenMarker = true;
+  persistChatSeen();
+  updateChatUnread();
+}
+
+function persistChatSeen() {
+  window.localStorage.setItem(CHAT_LAST_SEEN_KEY, String(chat.lastSeenId));
+}
+
+function updateChatUnread() {
+  if (chat.isOpen) {
+    chat.unread = 0;
+    return;
+  }
+  const ownName = getSavedPlayerName();
+  chat.unread = chat.messages.filter((message) => message.id > chat.lastSeenId && message.player !== ownName).length;
+}
+
+function renderChat() {
+  if (!els.chatOpenBtn) return;
+  els.chatOpenBtn.classList.toggle("is-open", chat.isOpen);
+  if (els.chatUnreadBadge) {
+    els.chatUnreadBadge.hidden = chat.unread <= 0;
+    els.chatUnreadBadge.textContent = chat.unread > 99 ? "99+" : String(chat.unread);
+  }
+  if (els.chatMessages) {
+    const ownName = getSavedPlayerName();
+    els.chatMessages.innerHTML = chat.messages.length
+      ? chat.messages.map((message) => chatMessageHtml(message, ownName)).join("")
+      : '<li class="chat-empty">Сообщений пока нет.</li>';
+    els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
+  }
+  const canSend = Boolean(isPlayerNameSaved() && chat.active && window.location.protocol !== "file:" && !chat.sending);
+  if (els.chatInput) els.chatInput.disabled = !canSend;
+  if (els.chatSendBtn) els.chatSendBtn.disabled = !canSend || !els.chatInput?.value.trim();
+  if (els.chatStatus) {
+    els.chatStatus.textContent = chatStatusText(canSend);
+  }
+}
+
+function focusChatInput() {
+  if (!chat.isOpen || !els.chatInput || els.chatInput.disabled) return;
+  window.setTimeout(() => {
+    if (chat.isOpen && els.chatInput && !els.chatInput.disabled) {
+      els.chatInput.focus({ preventScroll: true });
+    }
+  }, 0);
+}
+
+function chatMessageHtml(message, ownName) {
+  const ownClass = message.player === ownName ? " is-own" : "";
+  return `<li class="chat-message${ownClass}">
+    <span class="chat-time">${escapeHtml(formatChatTime(message.createdAt))}</span><strong>${escapeHtml(message.player)}:</strong>
+    <span>${escapeHtml(message.text)}</span>
+  </li>`;
+}
+
+function chatStatusText(canSend) {
+  if (chat.status) return chat.status;
+  if (!isPlayerNameSaved()) return "Сначала сохрани ник.";
+  if (!canSend && chat.sending) return "Отправляем...";
+  return "";
+}
+
+function chatErrorText(error) {
+  if (error === "invalid_player") return "Сначала сохрани ник.";
+  if (error === "empty_message") return "Введите сообщение.";
+  return "Чат offline.";
+}
+
+function formatChatTime(timestamp) {
+  const date = new Date(Math.max(0, Number(timestamp) || Date.now()));
+  return date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
 }
 
 async function selectMode(modeId) {
@@ -532,6 +866,7 @@ async function loadServerProfile() {
     window.localStorage.setItem("tenderBombPlayerName", data.player);
     multiplayer.nameError = "";
   }
+  sendOnlineHeartbeat();
 }
 
 async function loadLeaderboards(modeId) {
@@ -539,6 +874,7 @@ async function loadLeaderboards(modeId) {
   applyServerNotice(data);
   const leaderboards = filterLeaderboards(data.leaderboards || { [modeId]: data.leaderboard || [] });
   multiplayer.active = true;
+  multiplayer.offlineFailures = 0;
   multiplayer.leaderboards = leaderboards;
   multiplayer.leaderboard = leaderboards[modeId] || [];
   cacheLeaderboards(multiplayer.leaderboards);
@@ -546,19 +882,30 @@ async function loadLeaderboards(modeId) {
 }
 
 async function refreshMultiplayerState() {
-  if (!multiplayer.active || !state) return;
+  if (!multiplayer.active || !state || multiplayer.refreshInFlight) return;
+  multiplayer.refreshInFlight = true;
   try {
     const data = await apiGet(`/api/state?mode=${encodeURIComponent(state.modeId)}`);
     applyServerNotice(data);
     const leaderboards = filterLeaderboards(data.leaderboards || { [state.modeId]: data.leaderboard || [] });
+    multiplayer.offlineFailures = 0;
     multiplayer.leaderboards = leaderboards;
     multiplayer.leaderboard = leaderboards[state.modeId] || [];
     cacheLeaderboards(multiplayer.leaderboards);
     renderMultiplayer();
   } catch (error) {
-    notifyServerOffline();
-    multiplayer.active = false;
-    renderMultiplayer();
+    multiplayer.offlineFailures += 1;
+    if (multiplayer.offlineFailures >= SERVER_OFFLINE_RETRY_LIMIT) {
+      notifyServerOffline();
+      multiplayer.active = false;
+      if (multiplayer.pollId) {
+        window.clearInterval(multiplayer.pollId);
+        multiplayer.pollId = null;
+      }
+      renderMultiplayer();
+    }
+  } finally {
+    multiplayer.refreshInFlight = false;
   }
 }
 
@@ -613,7 +960,7 @@ function beginServerRound() {
       }
       return data;
     })
-    .catch(() => {
+    .catch((error) => {
       if (state?.status === "playing") {
         if (error.message === "name_taken") {
           addLog("Ник занят", NAME_TAKEN_MESSAGE, "warn");
@@ -820,6 +1167,7 @@ async function savePlayerName() {
         // Dispatch again with server-confirmed name if it changed
         if (data.player && data.player !== name) window.dispatchEvent(new CustomEvent("tenderBombNameSaved", { detail: { name: data.player } }));
         addLog("Ник сохранен", `Ник ${multiplayer.playerName} закреплен за этим локальным IP.`, "info");
+        sendOnlineHeartbeat();
       } catch (error) {
         addLog("Ник сохранен локально", "Сервер не ответил, но браузер запомнил ник.", "warn");
       }
@@ -1192,19 +1540,17 @@ function eventNoEquivalent() {
 }
 
 function eventLongTerms() {
-  state.seconds += 9;
   const opened = autoRevealSafe(1);
   addLog(
     "ТЗ на 186 страниц",
-    opened ? "Время ушло на чтение, зато один раздел стал понятнее." : "Время ушло на чтение. Ничего нового.",
+    opened ? "Один раздел стал понятнее после чтения." : "Документ прочитали, но ничего нового.",
     "warn",
   );
 }
 
 function eventYesterdayDelivery() {
-  state.seconds += 14;
   hintRandomMines(1);
-  addLog("Поставка вчера", "Сроки давят, риск подсветился, таймер дернулся.", "bad");
+  addLog("Поставка вчера", "Сроки давят, один риск подсветился.", "bad");
 }
 
 function eventSingleParticipant() {
@@ -1461,7 +1807,6 @@ function renderLog() {
 function renderMultiplayer() {
   if (!els.multiplayerPanel) return;
 
-  const offlineRows = MODE_ORDER.reduce((total, modeId) => total + (multiplayer.leaderboards[modeId]?.length || 0), 0);
   const savedName = getSavedPlayerName();
   const currentName = cleanPlayerName(els.playerName.value);
   const isSavedName = Boolean(currentName && currentName === savedName && !multiplayer.nameError);
@@ -1478,10 +1823,8 @@ function renderMultiplayer() {
       : currentName !== savedName
         ? "Никнейм изменен. Нажмите «Сохранить», чтобы начать игру."
         : multiplayer.active
-          ? `Ник привязан к IP ${multiplayer.ip}. Таблицы хранят постоянные рекорды.`
-          : offlineRows
-            ? "Сервер рекордов не подключен. Показан последний сохраненный снимок таблицы."
-            : "Сервер рекордов не подключен. Запусти start-server.bat, чтобы сохранять и видеть рекорды отдела.";
+          ? `Ник привязан к IP ${multiplayer.ip}.`
+          : "Сервер рекордов offline.";
 
   els.leaderboards.innerHTML = MODE_ORDER.map((modeId) => {
     const rows = multiplayer.leaderboards[modeId] || [];
@@ -1537,18 +1880,22 @@ function updateStatusOnly() {
   els.timer.textContent = formatTime(state.seconds);
   els.progressFill.style.width = `${progress}%`;
 
+  let roundStatusText = "";
   if (state.status === "won") {
-    els.roundStatus.textContent = "Протокол подписан";
+    roundStatusText = "Протокол подписан";
     els.riskMood.textContent = "победа";
   } else if (state.status === "lost") {
-    els.roundStatus.textContent = "Закрывашка сработала";
+    roundStatusText = "Закрывашка сработала";
     els.riskMood.textContent = "больно";
   } else if (state.firstMove) {
-    els.roundStatus.textContent = `${state.mode.label}: поле закрыто`;
+    roundStatusText = `${state.mode.label}: поле закрыто`;
     els.riskMood.textContent = "тихо";
   } else {
-    els.roundStatus.textContent = `${state.mode.label}: ${progress}%`;
+    roundStatusText = `${state.mode.label}: ${progress}%`;
     els.riskMood.textContent = state.extractAuthority ? "выписка" : progress > 45 ? "жарко" : "рабоче";
+  }
+  if (els.roundStatus) {
+    els.roundStatus.textContent = roundStatusText;
   }
 }
 

@@ -390,7 +390,6 @@ h2 {
   font-size: 1rem;
 }
 
-.round-status,
 .mood {
   max-width: 280px;
   border: 1px solid var(--line);
@@ -403,25 +402,87 @@ h2 {
   text-align: center;
 }
 
-.round-status {
-  justify-self: center;
-  width: min(100%, 260px);
-}
-
 .game-launcher {
-  display: flex;
+  display: grid;
+  grid-column: 2 / 4;
+  grid-template-columns: minmax(720px, 760px) minmax(260px, 340px);
   align-items: center;
-  justify-content: flex-start;
-  gap: 12px;
+  justify-content: center;
+  gap: 18px;
   width: 100%;
   min-width: 0;
-  justify-self: start;
+  justify-self: center;
+}
+
+.header-player-cluster {
+  display: grid;
+  grid-template-columns: minmax(104px, 128px) minmax(0, 510px);
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  width: 100%;
+  min-width: 0;
+  justify-self: center;
+}
+
+.header-online {
+  width: 100%;
+  max-width: 128px;
+  min-height: 58px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px var(--control-shadow);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 1px 8px;
+  justify-self: end;
+}
+
+.header-online-label,
+.header-online-caption {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.header-online-count {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  align-self: center;
+  justify-self: end;
+  color: var(--muted);
+  font-size: 1.35rem;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+.header-online-caption {
+  grid-column: 1;
+  grid-row: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header-online.is-online .header-online-count {
+  color: var(--green);
+}
+
+.header-online.is-online .header-online-caption {
+  color: var(--green);
 }
 
 .header-profile {
-  flex: 1 1 420px;
-  min-width: 330px;
+  width: 100%;
+  min-width: 0;
   max-width: 510px;
+  justify-self: start;
   display: grid;
   gap: 5px;
 }
@@ -485,8 +546,9 @@ h2 {
   grid-template-columns: 1fr;
   gap: 7px;
   justify-items: stretch;
-  flex: 0 1 340px;
-  min-width: 270px;
+  width: min(100%, 340px);
+  min-width: 0;
+  justify-self: center;
 }
 
 .launcher-row {
@@ -534,10 +596,14 @@ h2 {
 }
 
 .casino-launch-button.is-active {
-  border-color: color-mix(in srgb, var(--red-dark) 56%, var(--amber));
+  border-color: var(--ink);
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--red) 92%, var(--surface)), color-mix(in srgb, var(--amber) 94%, var(--surface)));
+    linear-gradient(135deg, color-mix(in srgb, var(--red-dark) 78%, var(--ink)), color-mix(in srgb, var(--amber) 76%, var(--ink)));
   color: var(--on-accent);
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--on-accent) 42%, transparent),
+    inset 0 -4px 0 color-mix(in srgb, var(--ink) 22%, transparent),
+    0 10px 26px var(--control-shadow);
 }
 
 .playfield {
@@ -1320,6 +1386,21 @@ h2 {
   flex: 0 0 auto;
 }
 
+.casino-title-logo {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.casino-title-logo img {
+  display: block;
+  width: min(156px, 100%);
+  height: auto;
+  max-height: 118px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 14px rgba(32, 34, 38, 0.2));
+}
+
 .casino-header h2,
 .checkers-header h2,
 .tanks-header h2 {
@@ -2064,6 +2145,13 @@ button.checker-cell {
   min-width: 0;
 }
 
+.casino-lobby .leaderboard-table {
+  flex: 1;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
 .casino-board-area {
   --control-width: 820px;
   max-width: 900px;
@@ -2156,10 +2244,36 @@ button.checker-cell {
 
 .casino-payout-panel {
   display: grid;
-  grid-template-columns: minmax(150px, 190px) minmax(0, 1fr);
+  grid-template-columns: minmax(138px, 176px) minmax(0, 1fr);
+  align-items: stretch;
   gap: 8px;
   width: min(var(--control-width), 100%);
   margin-inline: auto;
+}
+
+.casino-payout-content {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 6px;
+  min-width: 0;
+}
+
+.casino-payout-logo {
+  justify-content: center;
+  align-self: stretch;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  background:
+    radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--amber) 16%, transparent), transparent 58%),
+    var(--surface);
+  box-shadow: 0 8px 22px var(--control-shadow);
+  overflow: hidden;
+}
+
+.casino-payout-logo img {
+  width: min(154px, 100%);
+  max-height: 132px;
 }
 
 .casino-jackpot-card,
@@ -2171,34 +2285,55 @@ button.checker-cell {
 }
 
 .casino-jackpot-card {
-  display: grid;
-  align-content: center;
-  gap: 5px;
-  min-height: 98px;
-  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 42px;
+  padding: 7px 12px;
   background:
-    radial-gradient(circle at 85% 16%, color-mix(in srgb, var(--amber) 34%, transparent), transparent 44%),
+    linear-gradient(135deg, color-mix(in srgb, var(--amber) 14%, transparent), transparent 62%),
     var(--surface);
 }
 
 .casino-jackpot-card span,
 .casino-jackpot-card small {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 900;
   line-height: 1.2;
   text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.casino-jackpot-rate {
+  flex: 0 1 auto;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--amber) 32%, var(--line));
+  border-radius: 999px;
+  padding: 3px 7px;
+  background: color-mix(in srgb, var(--amber-soft) 74%, var(--surface));
+  color: var(--amber) !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .casino-jackpot-card strong {
+  flex: 0 0 auto;
   overflow: hidden;
   color: var(--amber);
-  font-size: 1.55rem;
+  font-size: 1.2rem;
   font-variant-numeric: tabular-nums;
   font-weight: 950;
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.casino-jackpot-card small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .casino-payout-table {
@@ -2212,7 +2347,7 @@ button.checker-cell {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 7px;
-  min-height: 58px;
+  min-height: 52px;
   padding: 7px 8px;
 }
 
@@ -2349,6 +2484,7 @@ button.checker-cell {
   width: 100%;
   position: relative;
   z-index: 1;
+  contain: paint;
 }
 
 .casino-reel {
@@ -2373,6 +2509,8 @@ button.checker-cell {
     box-shadow 140ms ease,
     transform 140ms ease,
     filter 140ms ease;
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 .casino-reels-main .casino-reel {
@@ -2397,7 +2535,8 @@ button.checker-cell {
 }
 
 .casino-reels.is-spinning .casino-reel {
-  animation: casinoSpinBlur 180ms linear infinite;
+  animation: casinoSpinBlur 220ms linear infinite;
+  will-change: transform, opacity;
 }
 
 .casino-reels.is-spinning .casino-reel:nth-child(2) {
@@ -2432,6 +2571,7 @@ button.checker-cell {
 
 .casino-lever {
   position: relative;
+  isolation: isolate;
   display: grid;
   justify-items: center;
   align-content: end;
@@ -2446,16 +2586,18 @@ button.checker-cell {
 .casino-lever-knob {
   position: absolute;
   top: 0;
+  z-index: 4;
   width: 42px;
   height: 42px;
-  border: 1px solid color-mix(in srgb, var(--amber) 68%, var(--line));
+  border: 1px solid color-mix(in srgb, var(--red-dark) 72%, var(--line));
   border-radius: 999px;
   background:
-    radial-gradient(circle at 32% 24%, #fff7c8 0 12%, transparent 17%),
-    radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--amber) 72%, white), var(--amber) 64%, var(--red-dark));
+    radial-gradient(circle at 31% 23%, rgba(255, 255, 255, 0.95) 0 11%, transparent 18%),
+    radial-gradient(circle at 58% 70%, color-mix(in srgb, var(--red-dark) 78%, #2b0505), transparent 58%),
+    radial-gradient(circle at 50% 38%, #ff3f35 0 34%, #d81918 68%, #780b12 100%);
   box-shadow:
-    inset 0 -6px 0 rgba(32, 34, 38, 0.16),
-    0 9px 18px var(--control-shadow);
+    inset 0 -6px 0 rgba(70, 0, 0, 0.22),
+    0 9px 18px color-mix(in srgb, var(--red-dark) 22%, var(--control-shadow));
   transition:
     top 170ms ease,
     transform 170ms ease,
@@ -2463,6 +2605,8 @@ button.checker-cell {
 }
 
 .casino-lever-stick {
+  position: relative;
+  z-index: 2;
   width: 12px;
   height: 154px;
   border: 1px solid color-mix(in srgb, var(--amber) 58%, var(--line));
@@ -2476,6 +2620,7 @@ button.checker-cell {
 
 .casino-lever-base {
   position: absolute;
+  z-index: 3;
   bottom: 0;
   width: 58px;
   height: 34px;
@@ -2512,16 +2657,16 @@ button.checker-cell {
 
 @keyframes casinoSpinBlur {
   0% {
-    transform: translateY(-5px) scale(0.98);
-    filter: blur(0.4px) brightness(1.08);
+    opacity: 0.72;
+    transform: translate3d(0, -7px, 0) scale(0.99);
   }
   50% {
-    transform: translateY(5px) scale(1.02);
-    filter: blur(1px) brightness(0.95);
+    opacity: 1;
+    transform: translate3d(0, 7px, 0) scale(1.01);
   }
   100% {
-    transform: translateY(-5px) scale(0.98);
-    filter: blur(0.4px) brightness(1.08);
+    opacity: 0.72;
+    transform: translate3d(0, -7px, 0) scale(0.99);
   }
 }
 
@@ -2634,9 +2779,49 @@ button.checker-cell {
 }
 
 .casino-leaderboard {
-  min-height: 84px;
-  max-height: 330px;
+  min-height: 0;
   overflow: auto;
+}
+
+.casino-leaderboard.leaderboard {
+  align-content: start;
+  gap: 5px;
+  grid-auto-rows: max-content;
+}
+
+.casino-leaderboard.leaderboard li {
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 7px;
+  min-height: 0;
+  padding: 6px 7px;
+}
+
+.casino-leaderboard .leaderboard-rank {
+  width: 24px;
+  height: 24px;
+  font-size: 0.7rem;
+}
+
+.casino-leaderboard .leaderboard-rank.is-podium {
+  width: 28px;
+  height: 28px;
+}
+
+.casino-leaderboard .leaderboard-rank-symbol {
+  font-size: 1.32rem;
+}
+
+.casino-leaderboard .leaderboard-name {
+  font-size: 0.84rem;
+}
+
+.casino-leaderboard .leaderboard-meta {
+  margin-top: 1px;
+  font-size: 0.7rem;
+}
+
+.casino-leaderboard .leaderboard-time {
+  font-size: 0.8rem;
 }
 
 .casino-log-panel {
@@ -2674,6 +2859,192 @@ button.checker-cell {
   margin-top: 3px;
   color: var(--muted);
   font-size: 0.78rem;
+}
+
+.chat-launcher {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 32;
+  min-width: 76px;
+  min-height: 48px;
+  border: 1px solid color-mix(in srgb, var(--blue) 46%, var(--line));
+  border-radius: 999px;
+  padding: 10px 18px;
+  background: var(--blue);
+  color: var(--on-accent);
+  box-shadow: 0 14px 34px rgba(32, 34, 38, 0.22);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 950;
+}
+
+.chat-launcher.is-open {
+  display: none;
+}
+
+.chat-unread-badge {
+  position: absolute;
+  top: -7px;
+  right: -5px;
+  display: grid;
+  place-items: center;
+  min-width: 23px;
+  height: 23px;
+  border: 2px solid var(--surface);
+  border-radius: 999px;
+  padding: 0 6px;
+  background: var(--red);
+  color: var(--on-accent);
+  font-size: 0.74rem;
+  line-height: 1;
+}
+
+.chat-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 32;
+  pointer-events: none;
+}
+
+.chat-layer[hidden] {
+  display: none;
+}
+
+.chat-panel {
+  position: absolute;
+  right: 22px;
+  bottom: 22px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: 10px;
+  width: min(390px, calc(100vw - 24px));
+  height: min(560px, calc(100vh - 44px));
+  border: 1px solid color-mix(in srgb, var(--blue) 30%, var(--line));
+  border-radius: 8px;
+  padding: 14px;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--blue-soft) 55%, transparent), transparent 58%),
+    var(--surface);
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.chat-header h2 {
+  font-size: 1.25rem;
+}
+
+.chat-close-button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 1.35rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  margin: 0;
+  padding: 2px 4px 2px 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.chat-message {
+  max-width: 92%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--surface);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.chat-message.is-own {
+  align-self: flex-end;
+  border-color: color-mix(in srgb, var(--green) 38%, var(--line));
+  background: color-mix(in srgb, var(--green-soft) 70%, var(--surface));
+}
+
+.chat-time {
+  margin-right: 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.chat-message strong {
+  color: var(--ink);
+}
+
+.chat-empty {
+  margin: auto;
+  color: var(--muted);
+  font-weight: 800;
+  text-align: center;
+}
+
+.chat-status {
+  min-height: 18px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.chat-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 46px;
+  gap: 8px;
+}
+
+.chat-form input {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 14px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+}
+
+.chat-send-button {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--blue);
+  color: var(--on-accent);
+  box-shadow: 0 10px 22px var(--control-shadow);
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 950;
+}
+
+.chat-send-button:disabled,
+.chat-form input:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .result-modal {
@@ -2755,18 +3126,38 @@ button.checker-cell {
     justify-self: auto;
   }
 
-  .round-status {
-    margin-right: 0;
-    justify-self: auto;
-  }
-
   .game-launcher {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
     flex: 1 1 640px;
     width: auto;
   }
 
+  .header-player-cluster {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    flex: 1 1 520px;
+    width: auto;
+    min-width: 0;
+  }
+
+  .header-online {
+    flex: 0 0 118px;
+  }
+
   .header-profile {
-    flex-basis: 360px;
+    flex: 1 1 360px;
+    width: auto;
+  }
+
+  .launcher-actions {
+    flex: 0 1 340px;
+    width: auto;
+    min-width: 270px;
   }
 
   .playfield,
@@ -2884,6 +3275,11 @@ button.checker-cell {
     min-width: min(100%, 330px);
     max-width: none;
   }
+
+  .header-online {
+    flex: 0 0 104px;
+    min-height: 54px;
+  }
 }
 
 @media (max-width: 720px) {
@@ -2907,8 +3303,18 @@ button.checker-cell {
     justify-content: flex-start;
   }
 
-  .header-profile {
+  .header-player-cluster {
     flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .header-online {
+    flex: 0 0 104px;
+  }
+
+  .header-profile {
+    flex: 1 1 calc(100% - 116px);
+    min-width: 0;
   }
 
   .launcher-actions {
@@ -2916,8 +3322,7 @@ button.checker-cell {
     justify-items: stretch;
   }
 
-  .brand,
-  .round-status {
+  .brand {
     margin-left: 0;
     margin-right: 0;
   }
@@ -2967,9 +3372,16 @@ button.checker-cell {
     grid-column: auto;
   }
 
-  .round-status {
-    max-width: none;
-    width: 100%;
+  .chat-launcher {
+    right: 14px;
+    bottom: 14px;
+  }
+
+  .chat-panel {
+    right: 12px;
+    bottom: 12px;
+    width: calc(100vw - 24px);
+    height: min(560px, calc(100vh - 24px));
   }
 
   .mode-switch,
