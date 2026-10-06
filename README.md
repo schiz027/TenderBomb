@@ -9,7 +9,7 @@
 
 <br>
 
-[![Release](https://img.shields.io/badge/release-v0.1.5-6f42c1?style=for-the-badge)](https://github.com/schiz027/TenderBomb/releases)
+[![Release](https://img.shields.io/badge/release-v0.1.7-6f42c1?style=for-the-badge)](https://github.com/schiz027/TenderBomb/releases)
 ![Status](https://img.shields.io/badge/status-active_development-2ea44f?style=for-the-badge)
 ![Python](https://img.shields.io/badge/server-Python_3-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/client-Vanilla_JS-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
