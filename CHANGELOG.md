@@ -73,7 +73,7 @@
 
 - Улучшен интерфейс режима сапёра.
 
-[Unreleased]: https://github.com/schiz027/TenderBomb/compare/0.1.5...HEAD
+[Unreleased]: https://github.com/schiz027/TenderBomb/compare/v0.1.7...HEAD
 [0.1.5]: https://github.com/schiz027/TenderBomb/releases/tag/0.1.5
 [0.1.4]: https://github.com/schiz027/TenderBomb/releases/tag/0.1.4
 [0.1.3]: https://github.com/schiz027/TenderBomb/releases/tag/0.1.3
