@@ -241,12 +241,12 @@ TenderBomb/
 
 Проект находится в активной разработке.
 
-**Текущий опубликованный релиз: `0.1.5`**
+**Текущий опубликованный релиз: `0.1.7`**
 
-Начиная со следующей версии новые теги оформляются в виде:
+Новые теги оформляются в виде:
 
 ```text
-v0.1.6
+v0.1.7
 v0.2.0
 v1.0.0
 ```
@@ -262,10 +262,10 @@ v1.0.0
 macOS-архив для релиза можно собрать командой:
 
 ```bash
-bash scripts/build-macos.sh v0.1.6
+bash scripts/build-macos.sh v0.1.7
 ```
 
-Готовый файл появится в `dist/TenderBomb-v0.1.6-macOS.zip`.
+Готовый файл появится в `dist/TenderBomb-v0.1.7-macOS.zip`.
 
 <div align="center">
 
@@ -296,7 +296,7 @@ feat(casino): add bonus mechanic
 fix(checkers): correct king capture logic
 fix(server): prevent duplicate credit reward
 docs: improve local launch guide
-chore(release): prepare v0.1.6
+chore(release): prepare v0.1.7
 ```
 
 <details>
