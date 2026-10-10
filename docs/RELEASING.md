@@ -5,7 +5,7 @@
 Новые релизы используют Semantic Versioning и тег с префиксом `v`:
 
 ```text
-v0.1.6
+v0.1.7
 v0.2.0
 v1.0.0
 ```
@@ -31,20 +31,20 @@ v1.0.0
 Рекомендуемый коммит:
 
 ```text
-chore(release): prepare v0.1.6
+chore(release): prepare v0.1.7
 ```
 
 ## Git tag
 
 ```bash
-git tag -a v0.1.6 -m "TenderBomb v0.1.6"
-git push origin v0.1.6
+git tag -a v0.1.7 -m "TenderBomb v0.1.7"
+git push origin v0.1.7
 ```
 
 ## Название GitHub Release
 
 ```text
-TenderBomb v0.1.6
+TenderBomb v0.1.7
 ```
 
 ## Названия архивов
@@ -52,8 +52,8 @@ TenderBomb v0.1.6
 Использовать единый формат для новых релизов:
 
 ```text
-TenderBomb-v0.1.6.zip
-TenderBomb-v0.1.6-macOS.zip
+TenderBomb-v0.1.7.zip
+TenderBomb-v0.1.7-macOS.zip
 ```
 
 RAR-дубликат не нужен, если ZIP содержит тот же набор файлов.
@@ -63,13 +63,13 @@ RAR-дубликат не нужен, если ZIP содержит тот же 
 На macOS или Linux выполнить из корня репозитория:
 
 ```bash
-bash scripts/build-macos.sh v0.1.6
+bash scripts/build-macos.sh v0.1.7
 ```
 
 Скрипт создаст:
 
 ```text
-dist/TenderBomb-v0.1.6-macOS.zip
+dist/TenderBomb-v0.1.7-macOS.zip
 ```
 
 Внутри архива `start-server-macos.command` уже помечается исполняемым. Если пользователь запускает файл из исходников, можно один раз выполнить:
@@ -93,8 +93,8 @@ chmod +x start-server-macos.command
 - ...
 
 ## Запуск
-Windows: скачать TenderBomb-v0.1.6.zip, распаковать и запустить start-server.bat.
-macOS: скачать TenderBomb-v0.1.6-macOS.zip, распаковать и запустить start-server-macos.command.
+Windows: скачать TenderBomb-v0.1.7.zip, распаковать и запустить start-server.bat.
+macOS: скачать TenderBomb-v0.1.7-macOS.zip, распаковать и запустить start-server-macos.command.
 ```
 
 Release notes должны описывать пользовательский результат, а не список изменённых файлов.
