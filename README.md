@@ -14,6 +14,7 @@
 ![Python](https://img.shields.io/badge/server-Python_3-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/client-Vanilla_JS-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
 ![Windows](https://img.shields.io/badge/launch-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)
+![macOS](https://img.shields.io/badge/launch-macOS-000000?style=for-the-badge&logo=apple&logoColor=white)
 
 <br>
 
@@ -49,7 +50,7 @@ TenderBomb — это не одна игра, а небольшая **локал
 - история крупных выигрышей;
 - несколько цветовых тем интерфейса;
 - уведомления игрокам при перезапуске или отключении сервера;
-- запуск обычным окном или через tray-режим в Windows.
+- запуск на Windows и macOS, включая tray-режим в Windows.
 
 ---
 
@@ -123,7 +124,20 @@ http://localhost:8080/
 http://192.168.1.25:8080/
 ```
 
-### Вариант 2 — сервер в системном трее
+### Вариант 2 — обычный запуск macOS
+
+Требуется **Python 3**.
+
+Если файл уже исполняемый, его можно запустить двойным кликом в Finder. Для запуска из Terminal:
+
+```bash
+chmod +x start-server-macos.command
+./start-server-macos.command
+```
+
+Скрипт открывает `http://localhost:8080/` и показывает LAN-адреса, которыми можно поделиться с коллегами в той же локальной сети.
+
+### Вариант 3 — сервер в системном трее Windows
 
 ```bat
 start-server-tray.bat
@@ -131,7 +145,7 @@ start-server-tray.bat
 
 Подходит, если TenderBomb должен работать в фоне без постоянно открытого консольного окна.
 
-### Вариант 3 — вручную
+### Вариант 4 — вручную
 
 ```bash
 python server.py 8080
@@ -173,6 +187,7 @@ Python-сервер обслуживает файлы приложения и о
 | HTTP | `http.server` / стандартная библиотека Python |
 | Хранилище | локальные JSON / генерируемые файлы состояния |
 | Windows launcher | BAT + PowerShell |
+| macOS launcher / build | Bash + ZIP |
 
 **Внешние Python-зависимости не требуются.**
 
@@ -197,6 +212,10 @@ TenderBomb/
 ├── server-tray.ps1          # управление сервером из tray
 ├── start-server.bat         # обычный Windows-запуск
 ├── start-server-tray.bat    # фоновый Windows-запуск
+├── start-server-macos.command # обычный macOS-запуск
+│
+├── scripts/
+│   └── build-macos.sh       # сборка macOS ZIP-архива
 │
 ├── CHANGELOG.md             # история версий
 ├── CONTRIBUTING.md          # правила работы с Git
@@ -239,6 +258,14 @@ v1.0.0
 - **MAJOR** — крупные несовместимые изменения.
 
 Исторические версии `0.1.3`–`0.1.5` остаются без переименования.
+
+macOS-архив для релиза можно собрать командой:
+
+```bash
+bash scripts/build-macos.sh v0.1.6
+```
+
+Готовый файл появится в `dist/TenderBomb-v0.1.6-macOS.zip`.
 
 <div align="center">
 
