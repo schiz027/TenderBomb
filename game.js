@@ -947,6 +947,7 @@ function beginServerRound() {
     return state?.serverRoundPromise || Promise.resolve(null);
   }
 
+  const roundState = state;
   const modeId = state.modeId;
   state.serverRoundPromise = apiPost("/api/round/start", {
     player: getPlayerName(),
@@ -954,13 +955,14 @@ function beginServerRound() {
   })
     .then((data) => {
       if (!data?.ok || !data.round_id) throw new Error(data?.error || "round_start_failed");
-      if (state && state.modeId === modeId) {
+      if (state === roundState) {
         state.serverRoundId = data.round_id;
         state.serverStartedAt = Number(data.started_at) || 0;
       }
       return data;
     })
     .catch((error) => {
+      roundState.serverRoundPromise = null;
       if (state?.status === "playing") {
         if (error.message === "name_taken") {
           addLog("Ник занят", NAME_TAKEN_MESSAGE, "warn");
@@ -972,6 +974,65 @@ function beginServerRound() {
     });
 
   return state.serverRoundPromise;
+}
+
+
+function sendSapperAction(action, index) {
+  const roundState = state;
+  roundState.actionQueue = (roundState.actionQueue || Promise.resolve()).then(async () => {
+    if (state !== roundState) return;
+    const started = await beginServerRound();
+    if (!started || state !== roundState) throw new Error("round_unavailable");
+    if (roundState.serverRevision === null) applySapperSnapshot(started.round);
+    const data = await apiPost("/api/round/action", {
+      round_id: roundState.serverRoundId,
+      revision: roundState.serverRevision,
+      action,
+      index,
+    });
+    if (state !== roundState) return;
+    applyServerNotice(data);
+    if (data.round) applySapperSnapshot(data.round);
+    if (!data.ok) {
+      addLog("Ход не принят", data.error === "invalid_round" ? "Партия завершена на сервере. Начните новый раунд." : "Состояние поля обновлено. Повторите действие.", "warn");
+    }
+    if (data.leaderboards) {
+      multiplayer.leaderboards = data.leaderboards;
+      cacheLeaderboards(data.leaderboards);
+    }
+    if (data.result && !roundState.resultSent) {
+      roundState.resultSent = true;
+      if (roundState.status === "won") announceRecordResult(data.result);
+      updateResultCreditSummary(data.result);
+    }
+    render();
+  }).catch(() => {
+    if (state !== roundState) return;
+    addLog("Нет связи с сервером", "Действие не подтверждено. Повторите его после восстановления связи.", "warn");
+    render();
+  });
+}
+
+function applySapperSnapshot(snapshot) {
+  if (!snapshot) return;
+  const previousStatus = state.status;
+  state.cells = state.cells.map((cell, index) => ({ ...cell, ...snapshot.cells[index] }));
+  for (const key of ["status", "firstMove", "flags", "revealed", "fasCharges", "extractCharges", "extractAuthority", "extractUsed", "eventMeter"]) {
+    state[key] = snapshot[key];
+  }
+  state.serverRevision = snapshot.revision;
+  state.serverMineCount = snapshot.mineCount;
+  state.serverElapsedMs = snapshot.elapsed_ms;
+  state.serverSyncedAt = performance.now();
+  state.seconds = Math.max(state.status === "won" ? 1 : 0, Math.floor(snapshot.elapsed_ms / 1000));
+  state.logItems = snapshot.logs.map((item) => ({ ...item, icon: iconForEvent(item.title, item.tone) }));
+  if (state.status === "playing") startTimer();
+  else stopTimer();
+  if (previousStatus !== state.status && ["won", "lost"].includes(state.status)) {
+    const won = state.status === "won";
+    const text = won ? "Поле прочитано, риски обойдены, заявка ушла без лишнего драматизма." : "На поле сработала закрывашка.";
+    showResult(won ? "Победа в аукционе" : "Аукцион был под своих", text, "итог");
+  }
 }
 
 async function serverRoundIdForResult(status) {
@@ -1263,6 +1324,12 @@ function startGame(modeId) {
     serverRoundId: "",
     serverRoundPromise: null,
     serverStartedAt: 0,
+    serverMode: window.location.protocol !== "file:",
+    serverRevision: null,
+    serverMineCount: mode.mines,
+    serverElapsedMs: 0,
+    serverSyncedAt: 0,
+    actionQueue: Promise.resolve(),
   };
   hideResult();
   addLog("Аукцион опубликован", "Документы загружены, риски закрыты в поле.", "info");
@@ -1330,6 +1397,10 @@ function recalculateAdjacency() {
 function revealCell(index, source = "player") {
   if (!canPlay()) return 0;
   if (source === "player" && !requireSavedPlayerName()) return 0;
+  if (state.serverMode) {
+    sendSapperAction("reveal", index);
+    return 0;
+  }
 
   if (state.firstMove) {
     if (!state.boardReady) {
@@ -1404,6 +1475,10 @@ function openCell(cell) {
 function toggleFlag(index) {
   if (!canPlay()) return;
   if (!requireSavedPlayerName()) return;
+  if (state.serverMode) {
+    sendSapperAction("flag", index);
+    return;
+  }
   const cell = state.cells[index];
   if (!cell || cell.inactive || cell.revealed) return;
 
@@ -1429,6 +1504,10 @@ function handleFas() {
 function useExtract() {
   if (!canPlay() || state.firstMove || state.extractCharges <= 0) return;
   if (!requireSavedPlayerName()) return;
+  if (state.serverMode) {
+    sendSapperAction("extract");
+    return;
+  }
   state.extractCharges -= 1;
   state.extractUsed = true;
   state.extractAuthority = true;
@@ -1450,6 +1529,11 @@ function useExtract() {
 
 function applyFasCheck(index) {
   if (!canPlay() || state.fasCharges <= 0) return;
+  if (state.serverMode) {
+    state.fasTargetingMode = false;
+    sendSapperAction("fas", index);
+    return;
+  }
 
   state.fasCharges -= 1;
   state.fasTargetingMode = false;
@@ -1671,7 +1755,9 @@ function canPlay() {
 function startTimer() {
   if (state.timerId) return;
   state.timerId = window.setInterval(() => {
-    state.seconds += 1;
+    state.seconds = state.serverMode
+      ? Math.floor((state.serverElapsedMs + performance.now() - state.serverSyncedAt) / 1000)
+      : state.seconds + 1;
     updateStatusOnly();
   }, 1000);
 }
@@ -1939,6 +2025,7 @@ function getNeighbors(index) {
 }
 
 function countMines() {
+  if (state.serverMode) return state.serverMineCount;
   return state.cells.filter((cell) => !cell.inactive && cell.mine).length;
 }
 
