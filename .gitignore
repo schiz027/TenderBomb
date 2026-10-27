@@ -31,4 +31,4 @@ package-release.ps1
 
 # TESTS
 tests/
-docs/releases
+docs/releases/
