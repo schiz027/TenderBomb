@@ -5,13 +5,13 @@
   const SPIN_DELAY_MS = 520;
   const SERVER_OFFLINE_RETRY_LIMIT = 3;
   const BETS = [10, 25, 50, 100, 250, 500, 1000];
-  const DEFAULT_MIN_BET = 1;
+  const DEFAULT_MIN_BET = 10;
   const DEFAULT_MAX_BET = 10000;
   const DEFAULT_PAYOUTS = [
-    { symbol: "document", label: "Документы", asset: "assets/casino-symbol-document.png", two: 1, three: 5, jackpot: false },
+    { symbol: "document", label: "Документы", asset: "assets/casino-symbol-document.png", two: 1, three: 4, jackpot: false },
     { symbol: "seal", label: "Печать", asset: "assets/casino-symbol-seal.png", two: 1, three: 6, jackpot: false },
     { symbol: "supply", label: "Поставка", asset: "assets/casino-symbol-supply.png", two: 2, three: 8, jackpot: false },
-    { symbol: "fas", label: "ФАС", asset: "assets/casino-symbol-fas.png", two: 2, three: 12, jackpot: false },
+    { symbol: "fas", label: "ФАС", asset: "assets/casino-symbol-fas.png", two: 1, three: 12, jackpot: false },
     { symbol: "goszakaz", label: "Госзаказ", asset: "assets/casino-symbol-goszakaz.png", two: 3, three: 18, jackpot: false },
     { symbol: "tenderbomb", label: "TenderBomb", asset: "assets/casino-symbol-tenderbomb.png", two: 5, three: 35, jackpot: true },
   ];
@@ -60,6 +60,12 @@
     bottomReels: ["seal", "tenderbomb", "fas"],
     spinText: "Готово к крутке",
     spinning: false,
+    spinToken: "",
+    spinReadyAt: 0,
+    cooldownTimer: null,
+    jackpotFullBet: 1000,
+    jackpotMinBet: 100,
+    waitReason: "",
   };
 
   document.addEventListener("DOMContentLoaded", () => {
@@ -213,6 +219,7 @@
       casinoState.offlineFailures = 0;
       renderCasinoStatic();
     } catch (error) {
+      if (handleCasinoThrottle(error)) return;
       casinoState.offlineFailures += 1;
       if (casinoState.offlineFailures >= SERVER_OFFLINE_RETRY_LIMIT) {
         const wasActive = casinoState.serverActive;
@@ -333,6 +340,7 @@
       renderCasinoStatic();
       return;
     }
+    if (!casinoState.spinToken || performance.now() < casinoState.spinReadyAt) return;
 
     startSpinAnimation();
     renderCasinoStatic();
@@ -340,10 +348,12 @@
       const data = await casinoApiPost("/api/casino/spin", {
         player: getSavedCasinoName(),
         bet: casinoState.bet,
+        spin_token: casinoState.spinToken,
       });
-      await delay(SPIN_DELAY_MS);
+      const receivedAt = performance.now();
+      await delay(Math.max(SPIN_DELAY_MS, Math.min(1500, Number(data?.spin_cooldown_ms) || 0)));
       stopSpinAnimation(data?.result?.symbols);
-      applyCasinoState(data);
+      applyCasinoState(data, performance.now() - receivedAt);
       casinoState.serverActive = data.ok !== false;
       casinoState.offlineFailures = 0;
       handleCasinoSpinResult(data?.result);
@@ -351,6 +361,7 @@
     } catch (error) {
       await delay(180);
       stopSpinAnimation();
+      if (handleCasinoThrottle(error)) return;
       casinoState.serverActive = false;
       casinoState.spinText = "Касса не ответила";
       renderCasinoStatic();
@@ -389,11 +400,35 @@
       name_taken: NAME_TAKEN_MESSAGE,
       invalid_bet: "Такой ставки нет.",
       not_enough_credits: "Недостаточно кредитов.",
+      invalid_spin: "Крутка устарела. Повторите действие.",
+      spin_conflict: "Эта крутка уже проведена с другой ставкой.",
+      spin_too_fast: "Предыдущая крутка ещё не завершена.",
+      casino_blocked: "Казино временно заблокировано из-за частых недопустимых запросов.",
+      casino_minute_limit: "Достигнут лимит 30 круток в минуту.",
+      casino_hour_limit: "Достигнут лимит 600 круток в час.",
+      storage_error: "Не удалось сохранить крутку. Повторите позже.",
+      casino_request_limit: "Слишком много запросов. Повторите через несколько секунд.",
     };
     return messages[reason] || "Крутка не принята.";
   }
 
-  function applyCasinoState(data) {
+  function handleCasinoThrottle(error) {
+    if (![429, 503].includes(error?.status)) return false;
+    casinoState.serverActive = true;
+    casinoState.offlineFailures = 0;
+    casinoState.spinReadyAt = Math.max(casinoState.spinReadyAt, performance.now() + 2000);
+    casinoState.waitReason = "casino_request_limit";
+    casinoState.spinText = casinoErrorMessage(casinoState.waitReason);
+    if (casinoState.cooldownTimer) window.clearTimeout(casinoState.cooldownTimer);
+    casinoState.cooldownTimer = window.setTimeout(() => {
+      casinoState.cooldownTimer = null;
+      renderCasinoStatic();
+    }, casinoState.spinReadyAt - performance.now() + 10);
+    renderCasinoStatic();
+    return true;
+  }
+
+  function applyCasinoState(data, ageMs = 0) {
     applyCasinoServerNotice(data);
     casinoState.clientIp = data?.ip || casinoState.clientIp;
     if (data?.player) {
@@ -409,6 +444,16 @@
     casinoState.maxBet = Math.max(casinoState.minBet, Number(data?.max_bet) || DEFAULT_MAX_BET);
     casinoState.jackpot = Math.max(0, Number(data?.jackpot) || 0);
     casinoState.jackpotSymbol = String(data?.jackpot_symbol || casinoState.jackpotSymbol || "tenderbomb");
+    casinoState.jackpotFullBet = Math.max(1, Number(data?.jackpot_full_bet) || 1000);
+    casinoState.jackpotMinBet = Math.max(1, Number(data?.jackpot_min_bet) || 100);
+    casinoState.waitReason = String(data?.casino_wait_reason || "");
+    casinoState.spinToken = String(data?.spin_token || "");
+    const remainingCooldown = Math.max(0, (Number(data?.spin_cooldown_ms) || 0) - ageMs);
+    casinoState.spinReadyAt = performance.now() + remainingCooldown;
+    if (casinoState.cooldownTimer) window.clearTimeout(casinoState.cooldownTimer);
+    casinoState.cooldownTimer = remainingCooldown > 0
+      ? window.setTimeout(() => { casinoState.cooldownTimer = null; renderCasinoStatic(); }, remainingCooldown + 10)
+      : null;
     casinoState.payoutRules = normalizeCasinoPayouts(data?.payouts);
     casinoState.bigWins = normalizeCasinoBigWins(data?.big_wins);
     casinoState.history = normalizeCasinoHistory(data?.history);
@@ -706,7 +751,7 @@
     const invalidBet = !isCasinoBetAllowed(casinoState.bet);
     const notEnough = casinoState.credits !== null && casinoState.credits < casinoState.bet;
     casinoEls.spinBtn.disabled =
-      casinoState.spinning || !casinoState.serverActive || !isCasinoNameSaved() || casinoState.credits === null || invalidBet || notEnough;
+      casinoState.spinning || !casinoState.serverActive || !isCasinoNameSaved() || casinoState.credits === null || invalidBet || notEnough || !casinoState.spinToken || performance.now() < casinoState.spinReadyAt;
   }
 
   function renderCasinoStats() {
@@ -716,8 +761,15 @@
     if (casinoEls.betStat) casinoEls.betStat.textContent = formatCredits(casinoState.bet);
     if (casinoEls.payoutStat) casinoEls.payoutStat.textContent = formatCredits(casinoState.lastPayout);
     if (casinoEls.jackpot) casinoEls.jackpot.textContent = formatCredits(casinoState.jackpot);
-    if (casinoEls.jackpotHint) casinoEls.jackpotHint.textContent = `${casinoSymbolLabel(casinoState.jackpotSymbol)} x3 забирает банк`;
-    if (casinoEls.spinResult) casinoEls.spinResult.textContent = casinoState.spinText;
+    if (casinoEls.jackpotHint) {
+      const share = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 1 }).format(Math.min(1, casinoState.bet / casinoState.jackpotFullBet) * 100);
+      casinoEls.jackpotHint.textContent = casinoState.bet < casinoState.jackpotMinBet
+        ? `Джекпот от ${formatCredits(casinoState.jackpotMinBet)} кредитов`
+        : `${casinoSymbolLabel(casinoState.jackpotSymbol)} x3: ${share}% банка`;
+    }
+    if (casinoEls.spinResult) casinoEls.spinResult.textContent = performance.now() < casinoState.spinReadyAt && casinoState.waitReason.startsWith("casino_")
+      ? casinoErrorMessage(casinoState.waitReason)
+      : casinoState.spinText;
   }
 
   function renderCasinoPayouts() {
@@ -728,7 +780,7 @@
   }
 
   function casinoPayoutRow(item) {
-    const jackpotText = item.jackpot ? " + банк" : "";
+    const jackpotText = item.jackpot ? " + доля банка" : "";
     const label = item.label || casinoSymbolLabel(item.symbol);
     return `<div class="casino-payout-row${item.jackpot ? " is-jackpot" : ""}">
       <span class="casino-payout-symbol">${casinoSymbolImage(item.symbol, label)}</span>

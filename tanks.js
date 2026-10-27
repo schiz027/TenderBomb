@@ -80,6 +80,12 @@
     log: [],
     keys: {},
     lastDirection: null,
+    sessionId: "",
+    sessionSeq: 0,
+    controlId: null,
+    controlBusy: false,
+    controlQueue: Promise.resolve(),
+    starting: false,
   };
 
   document.addEventListener("DOMContentLoaded", () => {
@@ -186,6 +192,7 @@
     tanksState.keys = {};
     tanksState.lastDirection = null;
     stopTanksLoop();
+    stopTanksTransport();
     stopTanksPolling();
     tanksState.isOpen = false;
     tanksEls.view.hidden = true;
@@ -250,9 +257,41 @@
     }
   }
 
-  function startTanksRun() {
+  async function startTanksRun() {
     if (!requireSavedTanksName()) return;
+    if (tanksState.starting) return;
     stopTanksLoop();
+    stopTanksTransport();
+    tanksState.sessionId = "";
+    if (window.location.protocol !== "file:") {
+      tanksState.starting = true;
+      tanksState.keys = {};
+      tanksState.lastDirection = null;
+      try {
+        const data = await tanksApiPost("/api/tanks/session/start", { player: getSavedTanksName() });
+        if (!data.ok || !data.session_id) throw new Error(data.error || "session_unavailable");
+        tanksState.sessionId = data.session_id;
+        tanksState.sessionSeq = 0;
+        tanksState.controlQueue = Promise.resolve();
+        tanksState.submitted = false;
+        applyTanksGame(data.game);
+        if (!tanksState.isOpen) {
+          await sendTanksControl("cancel");
+          return;
+        }
+        tanksState.controlId = window.setInterval(() => {
+          if (!tanksState.controlBusy) sendTanksControl("input");
+        }, 50);
+        updateTanksCanvasSize();
+        startTanksLoop();
+      } catch (error) {
+        addTanksLog("Бой не начат", "Сервер не создал игровую сессию. Повторите запуск.", "warn");
+      } finally {
+        tanksState.starting = false;
+        renderTanksStatic();
+      }
+      return;
+    }
     tanksState.keys = {};
     tanksState.lastDirection = null;
     tanksState.status = "playing";
@@ -278,6 +317,79 @@
     addTanksLog("Старт", "База вышла на оборону.", "info");
     startTanksLevel();
     startTanksLoop();
+  }
+
+  function stopTanksTransport() {
+    if (tanksState.controlId) window.clearInterval(tanksState.controlId);
+    tanksState.controlId = null;
+  }
+
+  function applyTanksGame(game) {
+    if (!game) return;
+    const oldActors = new Map([tanksState.player, ...tanksState.enemies, ...tanksState.bullets].filter(Boolean).map((actor) => [actor.id, actor]));
+    for (const key of ["status", "level", "score", "lives", "destroyed", "doubleShot", "plasmaShot", "plasmaArmor", "fastEnemiesUnlocked", "iceUnlocked", "elapsedSeconds", "spawned", "totalEnemies", "enemiesLeft", "map", "powerups", "effects", "log", "godMode"]) {
+      tanksState[key] = game[key];
+    }
+    const smoothActor = (actor) => {
+      if (!actor) return null;
+      const old = oldActors.get(actor.id);
+      return { ...actor, targetX: actor.x, targetY: actor.y, x: old?.x ?? actor.x, y: old?.y ?? actor.y };
+    };
+    tanksState.player = smoothActor(game.player);
+    tanksState.enemies = game.enemies.map(smoothActor);
+    tanksState.bullets = game.bullets.map(smoothActor);
+    tanksState.sessionSeq = game.seq;
+    renderTanksStatus();
+    renderTanksLog();
+  }
+
+  function sendTanksControl(action) {
+    const sessionId = tanksState.sessionId;
+    if (!sessionId) return Promise.resolve();
+    tanksState.controlBusy = true;
+    tanksState.controlQueue = tanksState.controlQueue.then(async () => {
+      if (sessionId !== tanksState.sessionId) return;
+      const data = await tanksApiPost("/api/tanks/session/control", {
+        session_id: sessionId,
+        seq: tanksState.sessionSeq + 1,
+        action,
+        direction: activePlayerDirection(),
+        fire: Boolean(isFireActive()),
+      });
+      if (sessionId !== tanksState.sessionId) return;
+      applyTanksServerNotice(data);
+      if (data.game) applyTanksGame(data.game);
+      if (!data.ok) {
+        if (data.error === "invalid_round") {
+          stopTanksTransport();
+          stopTanksLoop();
+          tanksState.status = "gameover";
+          addTanksLog("Бой завершён", "Сессия больше не действует. Начните новый бой.", "warn");
+        }
+        return;
+      }
+      if (data.leaderboard) applyTanksServerState(data);
+      if (data.result && !tanksState.submitted) {
+        tanksState.submitted = true;
+        announceTanksRecord(data.result);
+      }
+      if (tanksState.status === "gameover") stopTanksTransport();
+      if (tanksState.status === "playing" && !tanksState.rafId && tanksState.isOpen) startTanksLoop();
+      renderTanksStats();
+      drawTanks();
+    }).catch(() => {
+      if (sessionId !== tanksState.sessionId) return;
+      resetTanksKeys();
+      stopTanksTransport();
+      stopTanksLoop();
+      tanksState.status = "gameover";
+      addTanksLog("Бой прерван", "Нет подтверждения от сервера. Начните новый бой после восстановления связи.", "warn");
+      renderTanksStatic();
+      drawTanks();
+    }).finally(() => {
+      tanksState.controlBusy = false;
+    });
+    return tanksState.controlQueue;
   }
 
   function startTanksLevel() {
@@ -323,6 +435,11 @@
   }
 
   function toggleTanksPause() {
+    if (tanksState.sessionId) {
+      resetTanksKeys();
+      sendTanksControl(tanksState.status === "paused" ? "resume" : "pause");
+      return;
+    }
     if (tanksState.status === "paused") {
       resumeTanksRun();
       return;
@@ -358,9 +475,16 @@
   }
 
   function tanksFrame(time) {
+    tanksState.rafId = null;
     const dt = Math.min(33, time - tanksState.lastTime || 16) / 16.6667;
     tanksState.lastTime = time;
-    updateTanks(dt);
+    if (tanksState.sessionId) {
+      const amount = Math.min(1, dt / 3);
+      for (const actor of [tanksState.player, ...tanksState.enemies, ...tanksState.bullets].filter(Boolean)) {
+        actor.x += (actor.targetX - actor.x) * amount;
+        actor.y += (actor.targetY - actor.y) * amount;
+      }
+    } else updateTanks(dt);
     drawTanks(dt);
     renderTanksStats();
     if (tanksState.isOpen && isTanksRunLive()) {
@@ -1007,6 +1131,11 @@
 
   function finishTanksRun(reason, options = {}) {
     if (tanksState.status === "gameover") return;
+    if (tanksState.sessionId) {
+      resetTanksKeys();
+      sendTanksControl(options.submit === false ? "cancel" : "finish");
+      return;
+    }
     const elapsedSeconds = Math.max(1, currentTanksRunSeconds());
     tanksState.status = "gameover";
     stopTanksLoop();
@@ -1073,6 +1202,10 @@
       addTanksLog("Рекорд отклонен", NAME_REQUIRED_MESSAGE, "warn");
     } else if (result.reason === "name_taken") {
       addTanksLog("Рекорд отклонен", NAME_TAKEN_MESSAGE, "warn");
+    } else if (result.reason === "unranked") {
+      addTanksLog("Бой без рекорда", "Результат этой сессии не участвует в общей таблице.", "info");
+    } else if (["invalid_round", "unverified_result"].includes(result.reason)) {
+      addTanksLog("Рекорд отклонён", "Сервер не подтвердил завершённый бой.", "warn");
     }
     announceTanksCreditReward(result.credit_reward);
   }

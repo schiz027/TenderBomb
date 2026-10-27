@@ -34,6 +34,7 @@
     offlineFailures: 0,
     clockId: null,
     botTimerId: null,
+    moveInFlight: false,
   };
 
   document.addEventListener("DOMContentLoaded", () => {
@@ -314,6 +315,7 @@
 
   async function startSingleplayerCheckers() {
     if (!requireSavedCheckersName()) return;
+    if (checkersState.moveInFlight) return;
     if (checkersState.mode === "multiplayer" && (checkersState.joined || checkersState.game)) {
       await leaveCheckers({ keepOpen: false });
     }
@@ -326,8 +328,29 @@
     checkersState.legalMoves = [];
     checkersState.error = "";
     checkersState.notice = "";
-    checkersState.game = createSingleplayerGame(getSavedCheckersName(), getBotDifficulty());
+    if (window.location.protocol === "file:") {
+      checkersState.game = createSingleplayerGame(getSavedCheckersName(), getBotDifficulty());
+      renderCheckers();
+      return;
+    }
+    checkersState.game = null;
+    checkersState.status = "starting";
+    checkersState.moveInFlight = true;
     renderCheckers();
+    try {
+      const data = await checkersPost("/api/checkers/bot/start", {
+        ...checkersPayload(),
+        difficulty: getBotDifficulty(),
+      });
+      if (checkersState.mode === "singleplayer" && checkersState.isOpen) applyCheckersData(data);
+    } catch (error) {
+      checkersState.status = "offline";
+      checkersState.error = "Сервер не создал партию с ботом. Повторите запуск.";
+      renderCheckers();
+    } finally {
+      checkersState.moveInFlight = false;
+      renderCheckers();
+    }
   }
 
   function createSingleplayerGame(playerName, difficulty) {
@@ -356,23 +379,32 @@
   }
 
   async function moveCheckersPiece(from, to) {
-    if (checkersState.mode === "singleplayer") {
+    if (checkersState.moveInFlight) return;
+    if (checkersState.mode === "singleplayer" && !checkersState.game?.serverAuthoritative) {
       moveSingleplayerPiece(from, to);
       return;
     }
 
+    checkersState.moveInFlight = true;
+    const requestedMode = checkersState.mode;
+    const requestedGameId = checkersState.game?.id;
     try {
-      const data = await checkersPost("/api/checkers/move", {
+      const data = await checkersPost(checkersState.mode === "singleplayer" ? "/api/checkers/bot/move" : "/api/checkers/move", {
         ...checkersPayload(),
         game_id: checkersState.game?.id,
+        revision: checkersState.game?.revision,
         from,
         to,
       });
+      if (checkersState.mode !== requestedMode || checkersState.game?.id !== requestedGameId) return;
       checkersState.selected = null;
       checkersState.legalMoves = [];
       applyCheckersData(data);
     } catch (error) {
       checkersState.error = "Ход не дошел до сервера.";
+      renderCheckers();
+    } finally {
+      checkersState.moveInFlight = false;
       renderCheckers();
     }
   }
@@ -479,7 +511,7 @@
   }
 
   async function submitSingleplayerCheckersReward(game) {
-    if (!game || game.creditSubmitted || window.location.protocol === "file:") return;
+    if (!game?.serverAuthoritative || game.creditSubmitted || window.location.protocol === "file:") return;
     game.creditSubmitted = true;
     try {
       const data = await checkersPost("/api/checkers/singleplayer-result", {
@@ -706,7 +738,7 @@
     checkersEls.turnTitle.textContent = checkersTurnText(status, game);
     checkersEls.name.classList.toggle("is-invalid", Boolean(checkersState.error));
 
-    checkersEls.singleplayerBtn.disabled = false;
+    checkersEls.singleplayerBtn.disabled = checkersState.moveInFlight;
     checkersEls.singleplayerBtn.textContent = "Старт одиночный режим";
     checkersEls.joinBtn.disabled = isWaiting || isPlaying || isSingleplayer;
     checkersEls.joinBtn.textContent = isFinished && !isSingleplayer
@@ -773,7 +805,7 @@
     };
     if (!game || game.status !== "playing" || !game.turn) return base;
 
-    if (checkersState.mode === "singleplayer") {
+    if (checkersState.mode === "singleplayer" && !game.serverAuthoritative) {
       const startedAt = Number(game.turn_started_at) || Date.now();
       base[game.turn] += Math.max(0, Date.now() - startedAt);
       return base;
@@ -869,6 +901,7 @@
   function checkersStatusText(status, game) {
     if (checkersState.error) return checkersState.error;
     if (checkersState.notice) return checkersState.notice;
+    if (status === "starting") return "Создаётся партия с ботом.";
     if (status === "offline") return "Запусти сервер, чтобы открыть лобби и играть с другим участником.";
     if (status === "waiting") return "Лобби создано. Партия начнется, когда зайдет второй игрок.";
     if (status === "playing") {
@@ -1225,6 +1258,8 @@
       illegal_move: "Такой ход сейчас невозможен.",
       must_continue: "Нужно продолжить взятие выбранной шашкой.",
       not_your_turn: "Сейчас ход соперника.",
+      invalid_round: "Партия больше не действует. Начните новую игру.",
+      stale_action: "Состояние доски обновилось. Повторите ход.",
     };
     return labels[error] || "Ход не принят.";
   }

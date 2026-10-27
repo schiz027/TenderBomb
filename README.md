@@ -9,7 +9,7 @@
 
 <br>
 
-[![Release](https://img.shields.io/badge/release-v0.1.7-6f42c1?style=for-the-badge)](https://github.com/schiz027/TenderBomb/releases)
+[![Release](https://img.shields.io/badge/release-v0.1.8-6f42c1?style=for-the-badge)](https://github.com/schiz027/TenderBomb/releases)
 ![Status](https://img.shields.io/badge/status-active_development-2ea44f?style=for-the-badge)
 ![Python](https://img.shields.io/badge/server-Python_3-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/client-Vanilla_JS-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
@@ -209,6 +209,9 @@ TenderBomb/
 ├── casino.js                # казино и слот-машина
 │
 ├── server.py                # HTTP-сервер, API и состояние
+├── sapper_engine.py         # серверное поле и действия сапёра
+├── tanks_engine.py          # серверная симуляция танчиков
+├── server_security.py       # ограничения запросов и блокировка хранилища
 ├── server-tray.ps1          # управление сервером из tray
 ├── start-server.bat         # обычный Windows-запуск
 ├── start-server-tray.bat    # фоновый Windows-запуск
@@ -220,7 +223,8 @@ TenderBomb/
 ├── CHANGELOG.md             # история версий
 ├── CONTRIBUTING.md          # правила работы с Git
 └── docs/
-    └── RELEASING.md         # порядок выпуска релиза
+    ├── RELEASING.md         # порядок выпуска релиза
+    └── SERVER_SESSIONS.md   # проверка результатов и защита казино
 ```
 
 Во время работы сервер создаёт локальные служебные данные — например `leaderboard-records.json`, `leaderboard-cache.js` и `.server-notice.json`. Они исключены из репозитория через `.gitignore`.
@@ -241,7 +245,9 @@ TenderBomb/
 
 Проект находится в активной разработке.
 
-**Текущий опубликованный релиз: `0.1.5`**
+**Текущая версия проекта: `0.1.8`**
+
+Версия 0.1.8 переносит проверку результатов и кредитных наград на сервер, ограничивает массовые крутки и добавляет журнал операций. Правила казино и ограничения описаны в [docs/SERVER_SESSIONS.md](docs/SERVER_SESSIONS.md).
 
 Начиная со следующей версии новые теги оформляются в виде:
 

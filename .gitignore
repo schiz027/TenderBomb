@@ -1,6 +1,7 @@
 # Local player data / generated leaderboard snapshots
 leaderboard-records.json
 leaderboard-cache.js
+leaderboard-records.json.lock
 
 # Temporary server notice marker
 .server-notice.json
@@ -15,6 +16,7 @@ __pycache__/
 
 # Browser / test profile
 .chrome-test-profile/
+.session-test-artifacts/
 
 # Temp files
 *.tmp
@@ -26,3 +28,7 @@ dist/
 
 package-release.bat
 package-release.ps1
+
+# TESTS
+tests/
+docs/releases
