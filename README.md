@@ -1,337 +1,65 @@
 <div align="center">
 
-<img src="assets/tenderbomb-logo.png" alt="TenderBomb" width="520">
+<img src="assets/tenderbomb-logo.png" alt="TenderBomb" width="360">
 
-### Тендеры закончились. Началась игра.
+**Тендеры закончились. Началась игра.**
 
-**TenderBomb** превращает офисный мир закупок, закрывашек и ФАС  
-в локальную браузерную аркаду с несколькими игровыми режимами, рейтингами и общей экономикой.
+Локальная браузерная аркада: четыре режима, общие профили, рекорды и кредиты.
 
-<br>
+[![Release](https://img.shields.io/github/v/release/schiz027/TenderBomb)](https://github.com/schiz027/TenderBomb/releases/latest)
+![Python](https://img.shields.io/badge/Python-3-3776AB?logo=python&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-vanilla-F7DF1E?logo=javascript&logoColor=black)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-[![Release](https://img.shields.io/badge/release-v0.1.8-6f42c1?style=for-the-badge)](https://github.com/schiz027/TenderBomb/releases)
-![Status](https://img.shields.io/badge/status-active_development-2ea44f?style=for-the-badge)
-![Python](https://img.shields.io/badge/server-Python_3-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![JavaScript](https://img.shields.io/badge/client-Vanilla_JS-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
-![Windows](https://img.shields.io/badge/launch-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)
-![macOS](https://img.shields.io/badge/launch-macOS-000000?style=for-the-badge&logo=apple&logoColor=white)
-
-<br>
-
-[**🚀 Быстрый запуск**](#-быстрый-запуск) ·
-[**🎮 Игровые режимы**](#-игровые-режимы) ·
-[**🧠 Как это устроено**](#-как-это-устроено) ·
-[**📦 Releases**](https://github.com/schiz027/TenderBomb/releases)
+[Скачать](https://github.com/schiz027/TenderBomb/releases/latest) · [Запуск](#запуск) · [Участие](CONTRIBUTING.md) · [Безопасность](SECURITY.md)
 
 </div>
 
----
+## Игровые режимы
 
-## 💣 Что такое TenderBomb
+| 💣 TenderBomb | ♟️ Шашки | 🪖 Танчики | 🎰 Казино |
+|:---:|:---:|:---:|:---:|
+| Сапёр про закупки: три сложности, ФАС и бонусы | Бот и PvP | Аркадные бои и волны врагов | Слоты, ставки и джекпот |
 
-TenderBomb — это не одна игра, а небольшая **локальная игровая площадка для браузера**.
+Кредиты, заработанные в играх, можно использовать в казино. Результаты и профили хранит общий сервер.
 
-В основе — тематический «сапёр» про тендеры и закрывашки. Вокруг него появились шашки, танчики и казино. Все режимы объединяет серверная часть: она хранит профили игроков, рекорды, кредиты и общие игровые данные.
+<table>
+<tr>
+<td width="50%"><img src="assets/screenshots/tenderbomb-gameplay.png" alt="TenderBomb — сапёр" width="100%"></td>
+<td width="50%"><img src="assets/screenshots/checkers-mode.png" alt="Шашки" width="100%"></td>
+</tr>
+<tr>
+<td><img src="assets/screenshots/tanks-mode.png" alt="Танчики" width="100%"></td>
+<td><img src="assets/screenshots/casino-mode.png" alt="Казино" width="100%"></td>
+</tr>
+</table>
 
-Проект рассчитан в первую очередь на запуск **в локальной сети**: один компьютер поднимает сервер, остальные просто открывают ссылку в браузере.
+## Запуск
 
-> [!TIP]
-> Никакого отдельного клиента устанавливать не нужно. Для сервера достаточно Python 3, а игрокам нужен только современный браузер.
+На компьютере сервера нужен **Python 3** без сторонних библиотек. Игрокам достаточно браузера.
 
-### ✨ Что уже умеет проект
+1. Скачайте и распакуйте архив из [Releases](https://github.com/schiz027/TenderBomb/releases/latest).
+2. Запустите скрипт для своей системы:
 
-- единый профиль игрока и сохранение ника;
-- постоянные лидерборды и рекорды;
-- внутренняя система кредитов между игровыми режимами;
-- несколько уровней сложности в TenderBomb;
-- одиночные и PvP-шашки;
-- аркадные танчики;
-- казино со слотами, ставками и джекпотом;
-- история крупных выигрышей;
-- несколько цветовых тем интерфейса;
-- уведомления игрокам при перезапуске или отключении сервера;
-- запуск на Windows и macOS, включая tray-режим в Windows.
-
----
-
-## 🎮 Игровые режимы
-
-| Режим | Что внутри |
+| Система | Команда |
 |---|---|
-| 💣 **TenderBomb** | Тендерный сапёр с «закрывашками», флажками, ФАС, бонусами и тремя уровнями сложности: **Экспресс**, **Госзаказ**, **Импортозамещение**. |
-| ♟️ **Шашки** | Одиночная игра против бота и PvP. За победы начисляются кредиты; поле корректно ориентируется для обеих сторон. |
-| 🪖 **Танчики** | Аркадный режим с очками, прогрессией и кредитной наградой за результат боя. |
-| 🎰 **Casino** | Слоты с несколькими ставками, таблицей выплат, тематическими символами, джекпотом и историей крупных выигрышей. |
+| Windows | `start-server.bat` |
+| Windows, в трее | `start-server-tray.bat` |
+| macOS, Terminal | `chmod +x start-server-macos.command && ./start-server-macos.command` |
+| Вручную | `python server.py 8080` (на macOS — `python3`) |
 
-### 💳 Общая экономика
+3. Откройте [localhost:8080](http://localhost:8080/). Другим игрокам в той же сети передайте LAN-адрес, показанный скриптом запуска.
 
-Кредиты связывают игровые режимы между собой: их можно заработать в TenderBomb, шашках и танчиках, а затем использовать в казино.
+> Запускайте игру через сервер: открытия `index.html` недостаточно для общих рекордов и экономики. Проект предназначен для доверенной локальной сети; рекомендации — в [SECURITY.md](SECURITY.md).
 
-Это превращает набор мини-игр в одну общую игровую систему, а не четыре независимые страницы.
+## Разработка и документация
 
----
+HTML/CSS и JavaScript отвечают за интерфейс; Python — за API, проверку результатов и локальное JSON-хранилище.
 
-## 📸 Скриншоты
-
-### TenderBomb / основной режим
-
-<p align="center">
-  <img src="assets/screenshots/tenderbomb-gameplay.png" alt="TenderBomb — основной игровой режим" width="100%">
-</p>
-
-Тематический сапёр в стиле тендерного безумия: уровни сложности, жалоба в ФАС, выписка РФ, лента событий и общая атмосфера «закрывашек».
-
----
-
-### Другие режимы
-
-<p align="center">
-  <img src="assets/screenshots/checkers-mode.png" alt="TenderBomb — режим Шашки" width="49%">
-  <img src="assets/screenshots/tanks-mode.png" alt="TenderBomb — режим Танчики" width="49%">
-</p>
-
-<p align="center">
-  <img src="assets/screenshots/casino-mode.png" alt="TenderBomb — режим Казино" width="100%">
-</p>
-
-- **Шашки** — отдельный режим с аккуратным интерфейсом, ходами и игрой против бота или другого игрока.
-- **Танчики** — мини-игра в аркадном стиле с уровнями, очками, волнами врагов и простым управлением.
-- **Casino** — полноценный слот-режим со ставками, джекпотом, тематическими символами TenderBomb и историей крупных выигрышей.
-
----
-
-## 🚀 Быстрый запуск
-
-### Вариант 1 — обычный запуск Windows
-
-Требуется **Python 3**.
-
-```bat
-start-server.bat
-```
-
-После запуска открыть:
-
-```text
-http://localhost:8080/
-```
-
-Скрипт автоматически покажет доступные LAN-адреса. Их можно отправить коллегам, подключённым к той же локальной сети.
-
-Пример:
-
-```text
-http://192.168.1.25:8080/
-```
-
-### Вариант 2 — обычный запуск macOS
-
-Требуется **Python 3**.
-
-Если файл уже исполняемый, его можно запустить двойным кликом в Finder. Для запуска из Terminal:
-
-```bash
-chmod +x start-server-macos.command
-./start-server-macos.command
-```
-
-Скрипт открывает `http://localhost:8080/` и показывает LAN-адреса, которыми можно поделиться с коллегами в той же локальной сети.
-
-### Вариант 3 — сервер в системном трее Windows
-
-```bat
-start-server-tray.bat
-```
-
-Подходит, если TenderBomb должен работать в фоне без постоянно открытого консольного окна.
-
-### Вариант 4 — вручную
-
-```bash
-python server.py 8080
-```
-
-> [!IMPORTANT]
-> Для сохранения лидербордов, профилей и общей экономики запускайте проект через `server.py`. Простого открытия `index.html` недостаточно для полной функциональности.
-
----
-
-## 🧠 Как это устроено
-
-```mermaid
-flowchart LR
-    A["🌐 Browser<br>Player 1"] --> S["🐍 TenderBomb Server<br>Python 3"]
-    B["🌐 Browser<br>Player 2"] --> S
-    C["🌐 Browser<br>Player N"] --> S
-
-    S --> G["🎮 Game API"]
-    S --> P["👤 Profiles"]
-    S --> L["🏆 Leaderboards"]
-    S --> E["💳 Credits & Casino"]
-
-    P --> J["💾 Local JSON state"]
-    L --> J
-    E --> J
-```
-
-Клиентская часть полностью работает на **HTML/CSS/Vanilla JavaScript**.  
-Python-сервер обслуживает файлы приложения и отвечает за состояние, которое должно быть общим для всех игроков.
-
-### Стек
-
-| Слой | Используется |
+| Файлы | Назначение |
 |---|---|
-| UI | HTML5, CSS3 |
-| Игровая логика | Vanilla JavaScript ES6+ |
-| Сервер | Python 3 |
-| HTTP | `http.server` / стандартная библиотека Python |
-| Хранилище | локальные JSON / генерируемые файлы состояния |
-| Windows launcher | BAT + PowerShell |
-| macOS launcher / build | Bash + ZIP |
+| `game.js`, `checkers.js`, `tanks.js`, `casino.js` | Игровые режимы |
+| `server.py`, `sapper_engine.py`, `tanks_engine.py`, `server_security.py` | Сервер и проверка игровых действий |
+| `assets/` | Графика и скриншоты |
 
-**Внешние Python-зависимости не требуются.**
-
----
-
-## 🗂️ Структура проекта
-
-```text
-TenderBomb/
-│
-├── assets/                  # графика, логотипы и игровые иконки
-│
-├── index.html               # основной интерфейс
-├── styles.css               # стили и цветовые темы
-│
-├── game.js                  # TenderBomb / сапёр
-├── checkers.js              # шашки
-├── tanks.js                 # танчики
-├── casino.js                # казино и слот-машина
-│
-├── server.py                # HTTP-сервер, API и состояние
-├── sapper_engine.py         # серверное поле и действия сапёра
-├── tanks_engine.py          # серверная симуляция танчиков
-├── server_security.py       # ограничения запросов и блокировка хранилища
-├── server-tray.ps1          # управление сервером из tray
-├── start-server.bat         # обычный Windows-запуск
-├── start-server-tray.bat    # фоновый Windows-запуск
-├── start-server-macos.command # обычный macOS-запуск
-│
-├── scripts/
-│   └── build-macos.sh       # сборка macOS ZIP-архива
-│
-├── CHANGELOG.md             # история версий
-├── CONTRIBUTING.md          # правила работы с Git
-└── docs/
-    ├── RELEASING.md         # порядок выпуска релиза
-    └── SERVER_SESSIONS.md   # проверка результатов и защита казино
-```
-
-Во время работы сервер создаёт локальные служебные данные — например `leaderboard-records.json`, `leaderboard-cache.js` и `.server-notice.json`. Они исключены из репозитория через `.gitignore`.
-
----
-
-## 🏆 Лидерборды и профили
-
-Сервер хранит результаты централизованно, поэтому игроки в локальной сети видят общие таблицы рекордов.
-
-Профиль привязывает игровой ник к локальному игроку, а результаты разных режимов могут использовать общую систему кредитов.
-
-Это позволяет использовать один TenderBomb-сервер как небольшую внутреннюю игровую площадку для всей команды.
-
----
-
-## 📦 Версии и релизы
-
-Проект находится в активной разработке.
-
-**Текущая версия проекта: `0.1.8`**
-
-Версия 0.1.8 переносит проверку результатов и кредитных наград на сервер, ограничивает массовые крутки и добавляет журнал операций. Правила казино и ограничения описаны в [docs/SERVER_SESSIONS.md](docs/SERVER_SESSIONS.md).
-
-Начиная со следующей версии новые теги оформляются в виде:
-
-```text
-v0.1.6
-v0.2.0
-v1.0.0
-```
-
-Версионирование следует **Semantic Versioning**:
-
-- **PATCH** — исправления;
-- **MINOR** — новая совместимая функциональность;
-- **MAJOR** — крупные несовместимые изменения.
-
-Исторические версии `0.1.3`–`0.1.5` остаются без переименования.
-
-macOS-архив для релиза можно собрать командой:
-
-```bash
-bash scripts/build-macos.sh v0.1.6
-```
-
-Готовый файл появится в `dist/TenderBomb-v0.1.6-macOS.zip`.
-
-<div align="center">
-
-### [📥 Открыть GitHub Releases](https://github.com/schiz027/TenderBomb/releases)
-
-</div>
-
-Полная история изменений находится в [CHANGELOG.md](CHANGELOG.md).
-
----
-
-## 🛠️ Разработка
-
-Для новых изменений используются короткие тематические ветки:
-
-```text
-feat/<name>
-fix/<name>
-docs/<name>
-refactor/<name>
-chore/<name>
-```
-
-Коммиты оформляются по **Conventional Commits**:
-
-```text
-feat(casino): add bonus mechanic
-fix(checkers): correct king capture logic
-fix(server): prevent duplicate credit reward
-docs: improve local launch guide
-chore(release): prepare v0.1.6
-```
-
-<details>
-<summary><strong>Подробнее о правилах разработки</strong></summary>
-
-<br>
-
-- правила работы с репозиторием — [CONTRIBUTING.md](CONTRIBUTING.md);
-- история изменений — [CHANGELOG.md](CHANGELOG.md);
-- выпуск новых версий — [docs/RELEASING.md](docs/RELEASING.md).
-
-</details>
-
----
-
-## 🗺️ Куда дальше
-
-Ближайшая линия разработки — **0.1.x → 0.2.0**.
-
-Новые игровые механики, баланс и интерфейс могут меняться по мере развития проекта. Стабильные изменения фиксируются в Changelog и GitHub Releases.
-
----
-
-<div align="center">
-
-<img src="assets/tender-bomb-mark.svg" alt="TenderBomb" width="56">
-
-**TenderBomb**
-
-*Survive the tender. Defuse the requirements.*
-
-</div>
+[Правила участия](CONTRIBUTING.md) · [История изменений](CHANGELOG.md) · [Выпуск релизов](docs/RELEASING.md) · [Игровые сессии и экономика](docs/SERVER_SESSIONS.md) · [MIT](LICENSE)
